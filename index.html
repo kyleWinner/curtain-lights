@@ -907,6 +907,9 @@ const PAINT_TESTS = [
   ['P4', 'First 10 red, mode2 = 1', smearCmd(tenRed, {mode2: 1})],
   ['P5', 'First 10 red, mode = 1', smearCmd(tenRed, {mode: 1})],
   ['P6', 'First 60 LEDs rainbow', smearCmd(Array.from({length: 60}, (_, i) => [i * 6, 1, 1]))],
+  ['P7', 'Saved: 10 red/green alternating', smearCmd(Array.from({length: 10}, (_, i) => i % 2 ? GREEN : RED), {preview: 0})],
+  ['P8', 'Saved: 30 red then 30 green', smearCmd(Array.from({length: 60}, (_, i) => i < 30 ? RED : GREEN), {preview: 0})],
+  ['P9', 'Saved: 60-LED rainbow', smearCmd(Array.from({length: 60}, (_, i) => [i * 6, 1, 1]), {preview: 0})],
 ];
 buildTests(PAINT_TESTS, $('#paintTests'), 'Paint');
 
