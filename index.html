@@ -1,0 +1,686 @@
+<title>Curtain Lights</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+/* Layout: phone-first single column (max 560px), sticky status bar on top,
+   tab bar fixed to the bottom for one-handed use. Deliberately dark-only:
+   it's a remote for lights you use after dark, and the accent follows the
+   colour currently on the curtain. */
+:root{
+  color-scheme: dark;
+  --bg:#0b0d12; --surface:#141822; --surface2:#1c2130; --line:#283043;
+  --fg:#eceef4; --muted:#8e96aa; --faint:#566078;
+  --accent:#ff7a3d; --on-accent:#14100c;
+  --ok:#4ade80; --err:#ff6b81;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+  --r:18px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);margin:0}
+body{
+  color:var(--fg); font-family:var(--body); font-size:15px; line-height:1.45;
+  min-height:100%;
+  background:
+    radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 60%),
+    var(--bg);
+  background-attachment:fixed;
+  transition:background .5s;
+}
+button,input,select{font:inherit;color:inherit}
+button{-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:0 120px}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;margin-inline:-16px;padding:14px 16px 12px;
+  background:color-mix(in srgb, var(--bg) 82%, transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.mark{width:34px;height:34px;flex:none;border-radius:10px;background:var(--surface);border:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:6px}
+.mark i{border-radius:50%;background:var(--accent);box-shadow:0 0 5px var(--accent)}
+.mark i:nth-child(3n){opacity:.4}
+h1{font-family:var(--display);font-size:20px;font-weight:700;margin:0;letter-spacing:-.02em;line-height:1.1}
+.spec{color:var(--muted);font-size:12px;margin-top:1px;font-variant-numeric:tabular-nums}
+.chip{display:flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;background:var(--surface);
+  border:1px solid var(--line);font-size:12.5px;color:var(--muted);white-space:nowrap;cursor:default}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.chip.on{color:var(--fg)}
+.chip.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.chip.busy .dot{background:#ffcf5a;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+
+/* panels */
+.stack{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+.panel{background:color-mix(in srgb, var(--surface) 90%, transparent);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+h2{font-family:var(--display);font-size:17px;font-weight:600;margin:0;letter-spacing:-.01em}
+.label{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.hint{color:var(--muted);font-size:13px;margin:10px 0 0;line-height:1.5}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+.btn{border:0;border-radius:12px;padding:12px 18px;background:var(--accent);color:var(--on-accent);font-weight:600;cursor:pointer;
+  transition:transform .08s, filter .15s, background .4s}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.55}
+.btn.wide{width:100%;padding:15px 18px;font-size:16px}
+.btn.ghost{background:var(--surface2);color:var(--fg);border:1px solid var(--line);font-weight:500}
+.btn.sm{padding:8px 13px;font-size:13.5px;border-radius:10px}
+.link{background:none;border:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px 0;font-size:13.5px}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg button{border:0;background:transparent;padding:7px 14px;border-radius:9px;cursor:pointer;color:var(--muted);font-weight:500}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+
+/* connect */
+.connect{display:flex;flex-direction:column;gap:6px}
+.steps{margin:14px 0 4px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.steps li{display:flex;gap:10px;font-size:14px;color:var(--muted)}
+.steps b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1px solid var(--line);
+  display:grid;place-items:center;font-size:12px;color:var(--fg)}
+.notice{border-radius:12px;padding:12px 14px;background:color-mix(in srgb, var(--err) 12%, var(--surface2));
+  border:1px solid color-mix(in srgb, var(--err) 40%, var(--line));font-size:13.5px;line-height:1.5}
+.notice b{color:var(--fg)}
+.conn-on{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.conn-on .name{font-weight:600}
+.conn-on .sub{font-size:12.5px;color:var(--muted)}
+
+/* colour */
+.colourTop{display:flex;gap:16px;align-items:center;margin-top:16px}
+.orb{position:relative;width:92px;height:92px;flex:none;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 0 5px var(--surface2), 0 0 40px color-mix(in srgb, var(--accent) 65%, transparent);cursor:pointer;transition:background .3s, box-shadow .3s}
+.orb input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.swatches{flex:1;min-width:0;display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+.sw{aspect-ratio:1;max-width:100%;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.sw.sel{border-color:var(--fg)}
+.readout{margin-top:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.slider{margin-top:16px}
+.slider .lbl{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent);height:28px}
+
+/* effects */
+.stepper{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:3px}
+.stepper button{border:0;background:transparent;width:38px;height:34px;border-radius:9px;cursor:pointer;font-size:20px;line-height:1}
+.stepper span{min-width:40px;text-align:center;font-family:var(--display);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.effects{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:16px}
+.ef{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:10px 0;cursor:pointer;
+  font-variant-numeric:tabular-nums;color:var(--muted);position:relative;font-size:14px}
+.ef.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.ef.fav::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:#ffd34d}
+
+/* painter */
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.brush{width:40px;height:36px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);padding:3px;cursor:pointer}
+.stage{margin-top:14px;padding:16px 8px 20px;border-radius:14px;background:#05060a;border:1px solid var(--line);
+  overflow-x:auto;display:flex;justify-content:center;position:relative}
+.rod{position:absolute;left:10px;right:10px;top:8px;height:4px;border-radius:2px;background:#2b3142}
+.curtain{display:grid;gap:3px;touch-action:none;user-select:none;-webkit-user-select:none;margin-top:4px}
+.cell{width:var(--cs);height:var(--cs);border-radius:50%;background:#181c27;transition:background .12s, box-shadow .12s}
+.cell.lit{background:var(--c);box-shadow:0 0 calc(var(--cs) * .9) var(--c)}
+.cell.loc{outline:2px solid var(--fg);outline-offset:2px}
+.locinfo{font-size:13px;color:var(--muted);margin-top:10px;min-height:1.4em;font-variant-numeric:tabular-nums}
+details.sub{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.field input,.field select,.rawin{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+
+/* more */
+.log{margin-top:12px;height:220px;overflow:auto;background:#05060a;border:1px solid var(--line);border-radius:12px;
+  padding:8px 10px;font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.log div{white-space:pre-wrap;word-break:break-all}
+.log .t{color:var(--faint);margin-right:7px}
+.log .tx{color:#86b6ff}.log .rx{color:#7ee2a8}.log .err{color:var(--err)}.log .info{color:var(--muted)}
+
+/* tab bar */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));
+  background:color-mix(in srgb, var(--surface) 88%, transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line)}
+.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tab{border:0;background:transparent;border-radius:12px;padding:8px 4px;cursor:pointer;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:500}
+.tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab.on{color:var(--fg);background:var(--surface2)}
+.tab.on svg{stroke:var(--accent)}
+
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;
+  pointer-events:none;z-index:9;background:#262c3c;border:1px solid var(--line);padding:10px 16px;border-radius:12px;
+  font-size:14px;transition:all .22s;max-width:calc(100vw - 32px);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.err{border-color:var(--err)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div style="min-width:0">
+        <h1>Curtain Lights</h1>
+        <div class="spec">3 × 3 m · 300 LEDs</div>
+      </div>
+    </div>
+    <div class="chip" id="chip"><span class="dot"></span><span id="chipText">Not connected</span></div>
+  </header>
+
+  <div class="stack">
+    <!-- connection -->
+    <section class="panel" id="connectPanel">
+      <div class="connect" id="connectOff">
+        <h2>Connect to your curtain</h2>
+        <ol class="steps">
+          <li><b>1</b><span>Switch the curtain on at its battery box.</span></li>
+          <li><b>2</b><span>Close the Surplife app so it lets go of the lights.</span></li>
+          <li><b>3</b><span>Tap Connect and pick the curtain from the list.</span></li>
+        </ol>
+        <div id="blocked" hidden></div>
+        <button class="btn wide" id="connectBtn">Connect</button>
+        <button class="link" id="connectAllBtn">Not in the list? Show every nearby device</button>
+      </div>
+      <div class="conn-on" id="connectOn" hidden>
+        <div style="min-width:0"><div class="name" id="devName">Curtain</div><div class="sub" id="devSub">Connected over Bluetooth</div></div>
+        <div class="row">
+          <button class="btn sm" id="reconnectBtn" hidden>Reconnect</button>
+          <button class="btn ghost sm" id="disconnectBtn">Disconnect</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- colour -->
+    <section class="panel" data-view="colour">
+      <div class="head">
+        <h2>Colour</h2>
+        <div class="seg" id="powerSeg"><button data-power="1">On</button><button data-power="0">Off</button></div>
+      </div>
+      <div class="colourTop">
+        <label class="orb" title="Pick any colour"><input type="color" id="colour" value="#ff7a3d" aria-label="Pick a colour"></label>
+        <div class="swatches" id="swatches"></div>
+      </div>
+      <div class="readout"><span id="hexOut">#FF7A3D</span><span id="encOut">hue 6 · sat 12 · level 31</span></div>
+      <div class="slider">
+        <div class="lbl"><span>Brightness</span><span id="brightOut">100%</span></div>
+        <input type="range" id="bright" min="1" max="100" value="100" aria-label="Brightness">
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn ghost sm" id="whiteBtn">White</button>
+        <button class="btn ghost sm" id="warmBtn">Warm white</button>
+      </div>
+      <p class="hint">The curtain stores colour as 120 hues, 16 saturation steps and 32 brightness levels, shown above as what gets sent.</p>
+    </section>
+
+    <!-- effects -->
+    <section class="panel" data-view="effects" hidden>
+      <div class="head">
+        <h2>Effects</h2>
+        <div class="row">
+          <button class="btn ghost sm" id="favBtn">☆ Save</button>
+          <div class="stepper"><button id="prevEf" aria-label="Previous effect">‹</button><span id="efNum">1</span><button id="nextEf" aria-label="Next effect">›</button></div>
+        </div>
+      </div>
+      <div class="effects" id="effects"></div>
+      <div class="slider">
+        <div class="lbl"><span>Speed</span><span id="efSpeedOut">80</span></div>
+        <input type="range" id="efSpeed" min="0" max="100" value="80" aria-label="Effect speed">
+      </div>
+      <div class="slider" style="margin-top:4px">
+        <div class="lbl"><span>Brightness</span><span id="efBrightOut">80</span></div>
+        <input type="range" id="efBright" min="1" max="100" value="80" aria-label="Effect brightness">
+      </div>
+      <p class="hint">The effects don't have names yet. Tap through them and save the ones you like; saved ones get a yellow dot.</p>
+    </section>
+
+    <!-- painter -->
+    <section class="panel" data-view="paint" hidden>
+      <div class="head">
+        <h2>Painter</h2>
+        <button class="btn sm" id="sendPaint">Send to curtain</button>
+      </div>
+      <div class="tools">
+        <div class="seg" id="toolSeg"><button data-tool="paint" class="on">Paint</button><button data-tool="erase">Erase</button><button data-tool="locate">Locate</button></div>
+        <input type="color" class="brush" id="brush" value="#ff7a3d" aria-label="Brush colour">
+        <button class="btn ghost sm" id="fillBtn">Fill</button>
+        <button class="btn ghost sm" id="clearBtn">Clear</button>
+      </div>
+      <div class="stage"><div class="rod"></div><div class="curtain" id="curtain"></div></div>
+      <div class="locinfo" id="locInfo"></div>
+      <label class="row" style="margin-top:6px;font-size:13.5px;color:var(--muted);gap:8px"><input type="checkbox" id="live" style="accent-color:var(--accent);width:18px;height:18px"> Send after every stroke</label>
+      <details class="sub">
+        <summary>Layout</summary>
+        <div class="fields">
+          <div class="field"><label for="cols">Strands</label><input type="number" id="cols" min="1" max="60" value="10"></div>
+          <div class="field"><label for="rows">LEDs per strand</label><input type="number" id="rows" min="1" max="60" value="30"></div>
+          <div class="field"><label for="order">LED order</label><select id="order"><option value="cols">Down each strand</option><option value="rows">Across each row</option></select></div>
+          <div class="field"><label for="snake">Direction</label><select id="snake"><option value="0">Same way each line</option><option value="1">Zig-zag</option></select></div>
+          <div class="field"><label for="bitmapBytes">Bitmap bytes</label><input type="number" id="bitmapBytes" min="1" max="200" value="50"></div>
+        </div>
+      </details>
+      <p class="hint">Use <b>Locate</b> and tap a dot to light just that LED. If a different LED lights up on the curtain, change the layout until they match.</p>
+    </section>
+
+    <!-- more -->
+    <section class="panel" data-view="more" hidden>
+      <h2>Advanced</h2>
+      <div class="row" style="margin-top:14px">
+        <button class="btn ghost sm" id="clockBtn">Sync clock</button>
+        <button class="btn ghost sm" id="statusBtn">Request status</button>
+      </div>
+      <div class="row" style="margin-top:10px;flex-wrap:nowrap">
+        <input class="rawin" id="raw" placeholder="Raw payload in hex, e.g. 7123" aria-label="Raw payload">
+        <button class="btn sm" id="rawBtn">Send</button>
+      </div>
+      <div class="label" style="margin-top:16px">Bluetooth log</div>
+      <div class="log" id="log"></div>
+      <p class="hint">&gt;&gt; is sent to the curtain, &lt;&lt; is its reply. If something misbehaves, copy this log into the chat.</p>
+      <button class="btn ghost sm" id="copyLog" style="margin-top:6px">Copy log</button>
+    </section>
+  </div>
+</div>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="in">
+    <button class="tab on" data-tab="colour"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Colour</button>
+    <button class="tab" data-tab="effects"><svg viewBox="0 0 24 24"><path d="M4 12c2.5-6 5.5-6 8 0s5.5 6 8 0"/></svg>Effects</button>
+    <button class="tab" data-tab="paint"><svg viewBox="0 0 24 24"><circle cx="7" cy="7" r="1.6"/><circle cx="12" cy="7" r="1.6"/><circle cx="17" cy="7" r="1.6"/><circle cx="7" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="17" cy="12" r="1.6"/><circle cx="7" cy="17" r="1.6"/><circle cx="12" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/></svg>Painter</button>
+    <button class="tab" data-tab="more"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"/></svg>Advanced</button>
+  </div>
+</nav>
+<div id="toast" role="status"></div>
+
+<script>
+// =====================================================================
+// Protocol (Surplife / Zengge BLE curtain), from the community notes at
+// zff.dev/ge0rg/surplife-curtain. Mirrors surplife_control.py.
+// =====================================================================
+const SVC = 0xffff, WRITE = 0xff01, NOTIFY = 0xff02;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+function frame(seq, payload){
+  const n = payload.length;
+  return Uint8Array.from([0x00, seq & 255, 0x80, 0x00, (n >> 8) & 255, n & 255, (n + 1) & 255, 0x0a, ...payload]);
+}
+function hsvParts(h, s, v){
+  return { hue: Math.round((((h % 360) + 360) % 360) / 3) % 120, sat: clamp(Math.round(s * 15), 0, 15), val: clamp(Math.round(v * 31), 0, 31) };
+}
+function encHsv(h, s, v){ const p = hsvParts(h, s, v); return (p.hue << 9) | (p.sat << 5) | p.val; }
+function hexToRgb(hex){ hex = hex.replace('#',''); return [0,2,4].map(i => parseInt(hex.slice(i, i+2), 16)); }
+function rgbToHsv(r, g, b){
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if(d){
+    if(max === r) h = ((g - b) / d) % 6; else if(max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    h *= 60; if(h < 0) h += 360;
+  }
+  return [h, max ? d / max : 0, max];
+}
+function encHex(hex, bright = 1){ const [h, s, v] = rgbToHsv(...hexToRgb(hex)); return encHsv(h, s, v * bright); }
+
+const CMD = {
+  power: on => [0x71, on ? 0x23 : 0x24],
+  colour: c => [0xe2, 0x0b, c >> 8, c & 255],
+  effect: (n, speed, bright) => [0xe0, 0x02, 0x00, n & 255, speed & 255, bright & 255],
+  pixels(c, idxs, nbytes){
+    const bm = new Array(nbytes).fill(0);
+    for(const p of idxs) if(p >= 0 && p < nbytes * 8) bm[p >> 3] |= 0x80 >> (p & 7);
+    return [0xe2, 0x0c, 0x90, c >> 8, c & 255, ...bm];
+  },
+  clock(d = new Date()){
+    const y = d.getFullYear(), wd = d.getDay() || 7;
+    const body = [0x10, Math.floor(y / 100), y % 100, d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), wd, 0x00, 0x0f];
+    return [...body, body.reduce((a, b) => a + b, 0) & 255];
+  },
+  status: () => [0xea, 0x81, 0x8a, 0x8b, 0x59],
+};
+const toHex = arr => Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+
+// =====================================================================
+// Small helpers
+// =====================================================================
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('curtain.' + k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('curtain.' + k, JSON.stringify(v)); }catch(e){} },
+};
+function toast(msg, err){
+  const t = $('#toast'); t.textContent = msg; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.className = '', 2800);
+}
+function throttle(fn, ms){
+  let timer = null, pending = null;
+  return (...a) => {
+    pending = a; if(timer) return;
+    fn(...pending); pending = null;
+    timer = setTimeout(function tick(){
+      if(pending){ const p = pending; pending = null; fn(...p); timer = setTimeout(tick, ms); } else timer = null;
+    }, ms);
+  };
+}
+function setAccent(hex){
+  const [r, g, b] = hexToRgb(hex);
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  document.documentElement.style.setProperty('--accent', hex);
+  document.documentElement.style.setProperty('--on-accent', lum > 0.55 ? '#14100c' : '#ffffff');
+}
+function log(kind, text){
+  const box = $('#log'), atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 8;
+  const row = document.createElement('div');
+  const t = document.createElement('span'); t.className = 't'; t.textContent = new Date().toTimeString().slice(0, 8);
+  const m = document.createElement('span'); m.className = kind;
+  m.textContent = (kind === 'tx' ? '>> ' : kind === 'rx' ? '<< ' : '') + text;
+  row.append(t, m); box.appendChild(row);
+  while(box.children.length > 400) box.removeChild(box.firstChild);
+  if(atEnd) box.scrollTop = box.scrollHeight;
+}
+
+// =====================================================================
+// Bluetooth
+// =====================================================================
+let device = null, writeChar = null, withResponse = true, seq = 0, queue = Promise.resolve();
+const isConnected = () => !!(device && device.gatt && device.gatt.connected && writeChar);
+
+function setChip(state, text){
+  const c = $('#chip'); c.className = 'chip' + (state === 'on' ? ' on' : state === 'busy' ? ' busy' : '');
+  $('#chipText').textContent = text;
+}
+function renderConnection(){
+  const on = isConnected();
+  if(on){
+    $('#connectOff').hidden = true; $('#connectOn').hidden = false; $('#reconnectBtn').hidden = true;
+    $('#devName').textContent = device.name || 'Curtain lights';
+    $('#devSub').textContent = 'Connected over Bluetooth';
+    setChip('on', 'Connected');
+  }else if(device && device._wasConnected){
+    $('#connectOff').hidden = true; $('#connectOn').hidden = false; $('#reconnectBtn').hidden = false;
+    $('#devSub').textContent = 'Connection dropped';
+    setChip('off', 'Disconnected');
+  }else{
+    $('#connectOff').hidden = false; $('#connectOn').hidden = true;
+    setChip('off', 'Not connected');
+  }
+}
+function showBlocked(kind, detail){
+  const el = $('#blocked'); el.hidden = false; el.className = 'notice';
+  if(kind === 'nobt'){
+    el.innerHTML = '<b>This browser can\'t use Bluetooth.</b> Open this page in <b>Chrome on Android</b> (or Chrome/Edge on a computer). It won\'t work inside the Claude app or on iPhone.';
+  }else{
+    el.innerHTML = '<b>Bluetooth is blocked on this page.</b> The page it\'s hosted on isn\'t allowed to use Bluetooth. Ask Claude for the GitHub Pages version and open that instead.';
+  }
+  if(detail) log('err', detail);
+}
+
+async function connect(showAll){
+  if(!navigator.bluetooth){ showBlocked('nobt'); return; }
+  const opts = showAll
+    ? {acceptAllDevices: true, optionalServices: [SVC]}
+    : {filters: [{namePrefix: 'IOTBT'}, {services: [SVC]}], optionalServices: [SVC]};
+  try{
+    device = await navigator.bluetooth.requestDevice(opts);
+  }catch(e){
+    if(e.name === 'NotFoundError'){ log('info', 'Device list closed without choosing'); return; }
+    if(e.name === 'SecurityError' || /permissions policy|disallowed|not allowed/i.test(e.message)){ showBlocked('frame', e.message); return; }
+    toast(e.message, true); log('err', e.message); return;
+  }
+  device.addEventListener('gattserverdisconnected', () => {
+    writeChar = null; log('err', 'Curtain disconnected'); renderConnection(); toast('Curtain disconnected', true);
+  });
+  await openGatt();
+}
+async function openGatt(){
+  setChip('busy', 'Connecting…');
+  try{
+    const server = await device.gatt.connect();
+    let svc;
+    try{ svc = await server.getPrimaryService(SVC); }
+    catch(e){ device.gatt.disconnect(); throw new Error("That device isn't the curtain. Try connecting again and pick a different one."); }
+    writeChar = await svc.getCharacteristic(WRITE);
+    withResponse = !!writeChar.properties.write;
+    const notify = await svc.getCharacteristic(NOTIFY);
+    await notify.startNotifications();
+    notify.addEventListener('characteristicvaluechanged', e => log('rx', toHex(new Uint8Array(e.target.value.buffer))));
+    device._wasConnected = true; seq = 0;
+    log('info', 'Connected to ' + (device.name || 'curtain'));
+    renderConnection(); toast('Connected');
+    send(CMD.clock()); send(CMD.status());
+  }catch(e){
+    writeChar = null; renderConnection(); toast(e.message, true); log('err', e.message);
+  }
+}
+function send(payload, quiet){
+  if(!isConnected()){ if(!quiet) toast('Connect to the curtain first', true); return Promise.resolve(false); }
+  const job = queue.then(async () => {
+    if(!isConnected()) return false;
+    seq = (seq + 1) & 255;
+    const f = frame(seq, payload);
+    log('tx', toHex(f));
+    if(withResponse) await writeChar.writeValueWithResponse(f); else await writeChar.writeValueWithoutResponse(f);
+    return true;
+  }).catch(e => { log('err', e.message); toast(e.message, true); return false; });
+  queue = job;
+  return job;
+}
+
+$('#connectBtn').onclick = () => connect(false);
+$('#connectAllBtn').onclick = () => connect(true);
+$('#reconnectBtn').onclick = () => openGatt();
+$('#disconnectBtn').onclick = () => {
+  if(device){ device._wasConnected = false; try{ device.gatt.disconnect(); }catch(e){} }
+  device = null; writeChar = null; renderConnection(); log('info', 'Disconnected');
+};
+if(!navigator.bluetooth) showBlocked('nobt');
+
+// =====================================================================
+// Tabs
+// =====================================================================
+function showTab(name){
+  document.querySelectorAll('[data-view]').forEach(p => p.hidden = p.dataset.view !== name);
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
+  store.set('tab', name);
+  if(name === 'paint') buildCurtain();
+}
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => { showTab(t.dataset.tab); window.scrollTo({top: 0}); });
+
+// =====================================================================
+// Colour
+// =====================================================================
+const SWATCHES = ['#ff2a2a','#ff6a00','#ffb300','#ffe500','#9dff00','#22ff66','#00e5ff','#2a7cff','#7a2aff','#ff2ad4'];
+let colour = store.get('colour', '#ff7a3d'), bright = store.get('bright', 100), whiteMode = false;
+
+function updateReadout(){
+  if(whiteMode){
+    const p = hsvParts(0, 0, bright / 100);
+    $('#hexOut').textContent = 'WHITE'; $('#encOut').textContent = `sat 0 · level ${p.val}`;
+    return;
+  }
+  const [h, s, v] = rgbToHsv(...hexToRgb(colour)), p = hsvParts(h, s, v * bright / 100);
+  $('#hexOut').textContent = colour.toUpperCase();
+  $('#encOut').textContent = `hue ${p.hue} · sat ${p.sat} · level ${p.val}`;
+}
+const pushColour = throttle(() => send(whiteMode ? CMD.colour(encHsv(0, 0, bright / 100)) : CMD.colour(encHex(colour, bright / 100)), true), 160);
+function pickColour(hex, doSend){
+  colour = hex.toLowerCase(); whiteMode = false; store.set('colour', colour);
+  $('#colour').value = colour; setAccent(colour); updateReadout();
+  document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', s.dataset.hex === colour));
+  if(doSend){ if(!isConnected()) toast('Connect to the curtain first', true); else pushColour(); }
+}
+for(const hex of SWATCHES){
+  const b = document.createElement('button'); b.className = 'sw'; b.dataset.hex = hex; b.style.background = hex;
+  b.setAttribute('aria-label', 'Colour ' + hex); b.onclick = () => pickColour(hex, true);
+  $('#swatches').appendChild(b);
+}
+$('#colour').addEventListener('input', e => pickColour(e.target.value, true));
+$('#bright').value = bright; $('#brightOut').textContent = bright + '%';
+$('#bright').addEventListener('input', e => {
+  bright = +e.target.value; store.set('bright', bright); $('#brightOut').textContent = bright + '%'; updateReadout();
+  if(isConnected()) pushColour();
+});
+$('#whiteBtn').onclick = () => {
+  whiteMode = true; setAccent('#e9ecff'); updateReadout();
+  document.querySelectorAll('.sw').forEach(s => s.classList.remove('sel'));
+  send(CMD.colour(encHsv(0, 0, bright / 100)));
+};
+$('#warmBtn').onclick = () => pickColour('#ffaa50', true);
+document.querySelectorAll('#powerSeg button').forEach(b => b.onclick = async () => {
+  if(await send(CMD.power(b.dataset.power === '1')))
+    document.querySelectorAll('#powerSeg button').forEach(x => x.classList.toggle('on', x === b));
+});
+
+// =====================================================================
+// Effects
+// =====================================================================
+const EF_MAX = 60;
+let ef = store.get('effect', 1), favs = new Set(store.get('favs', []));
+let efSpeed = store.get('efSpeed', 80), efBright = store.get('efBright', 80);
+const pushEffect = throttle(() => send(CMD.effect(ef, efSpeed, efBright), true), 200);
+
+for(let i = 1; i <= EF_MAX; i++){
+  const b = document.createElement('button'); b.className = 'ef'; b.textContent = i; b.dataset.n = i;
+  b.onclick = () => pickEffect(i); $('#effects').appendChild(b);
+}
+function renderEffects(){
+  $('#efNum').textContent = ef;
+  document.querySelectorAll('.ef').forEach(b => { const n = +b.dataset.n; b.classList.toggle('on', n === ef); b.classList.toggle('fav', favs.has(n)); });
+  $('#favBtn').textContent = favs.has(ef) ? '★ Saved' : '☆ Save';
+}
+function pickEffect(n){
+  ef = clamp(n, 1, EF_MAX); store.set('effect', ef); renderEffects();
+  if(!isConnected()) toast('Connect to the curtain first', true); else pushEffect();
+}
+$('#prevEf').onclick = () => pickEffect(ef - 1);
+$('#nextEf').onclick = () => pickEffect(ef + 1);
+$('#favBtn').onclick = () => { favs.has(ef) ? favs.delete(ef) : favs.add(ef); store.set('favs', [...favs]); renderEffects(); };
+$('#efSpeed').value = efSpeed; $('#efSpeedOut').textContent = efSpeed;
+$('#efBright').value = efBright; $('#efBrightOut').textContent = efBright;
+$('#efSpeed').addEventListener('input', e => { efSpeed = +e.target.value; $('#efSpeedOut').textContent = efSpeed; store.set('efSpeed', efSpeed); if(isConnected()) pushEffect(); });
+$('#efBright').addEventListener('input', e => { efBright = +e.target.value; $('#efBrightOut').textContent = efBright; store.set('efBright', efBright); if(isConnected()) pushEffect(); });
+renderEffects();
+
+// =====================================================================
+// Painter
+// =====================================================================
+const layout = Object.assign({cols: 10, rows: 30, order: 'cols', snake: '0', bitmapBytes: 50}, store.get('layout', {}));
+let paint = store.get('paint', []), tool = 'paint', brush = store.get('brush', '#ff7a3d');
+let painting = false, last = null, locK = null;
+
+function ledIndex(r, c){
+  const {cols, rows, order} = layout, snake = layout.snake === '1';
+  return order === 'cols' ? c * rows + (snake && c % 2 ? rows - 1 - r : r) : r * cols + (snake && r % 2 ? cols - 1 - c : c);
+}
+function buildCurtain(){
+  const el = $('#curtain'); el.innerHTML = '';
+  const {cols, rows} = layout;
+  const avail = Math.min(($('.stage').clientWidth || 340) - 20, 480);
+  const cs = clamp(Math.min(Math.floor(avail / cols) - 3, Math.floor(560 / rows) - 3), 7, 22);
+  el.style.setProperty('--cs', cs + 'px');
+  el.style.gridTemplateColumns = `repeat(${cols}, var(--cs))`;
+  if(paint.length !== cols * rows) paint = new Array(cols * rows).fill(null);
+  const frag = document.createDocumentFragment();
+  for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
+    const d = document.createElement('div'); d.className = 'cell'; d.dataset.k = r * cols + c; frag.appendChild(d);
+  }
+  el.appendChild(frag); renderPaint();
+}
+function renderPaint(){
+  document.querySelectorAll('.cell').forEach(d => {
+    const k = +d.dataset.k, v = paint[k];
+    d.classList.toggle('lit', !!v); d.style.setProperty('--c', v || 'transparent'); d.classList.toggle('loc', k === locK);
+  });
+}
+function applyAt(el){
+  if(!el || !el.dataset || el.dataset.k === undefined) return;
+  const k = +el.dataset.k, v = tool === 'erase' ? null : brush;
+  if(paint[k] === v) return;
+  paint[k] = v; el.classList.toggle('lit', !!v); el.style.setProperty('--c', v || 'transparent');
+}
+function groups(){
+  const {cols, rows} = layout, g = {};
+  for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
+    const v = paint[r * cols + c] || '#000000'; (g[v] = g[v] || []).push(ledIndex(r, c));
+  }
+  return g;
+}
+async function sendGroups(g){
+  // Merge colours that encode to the same value; unlit pixels go first.
+  const byCode = new Map();
+  for(const [hex, idxs] of Object.entries(g)){ const c = encHex(hex); byCode.set(c, (byCode.get(c) || []).concat(idxs)); }
+  const codes = [...byCode.keys()].sort((a, b) => ((a & 31) !== 0) - ((b & 31) !== 0));
+  let ok = true;
+  for(const c of codes) ok = (await send(CMD.pixels(c, byCode.get(c), layout.bitmapBytes), true)) && ok;
+  return ok;
+}
+async function sendPaint(){
+  if(!isConnected()){ toast('Connect to the curtain first', true); return; }
+  if(await sendGroups(groups())) toast('Sent to curtain');
+}
+async function locate(k){
+  const {cols, rows} = layout, r = Math.floor(k / cols), c = k % cols, idx = ledIndex(r, c);
+  locK = k; renderPaint();
+  $('#locInfo').textContent = `LED ${idx} · strand ${c + 1}, ${r + 1} from the top`;
+  if(!isConnected()){ toast('Connect to the curtain first', true); return; }
+  const others = []; for(let i = 0; i < cols * rows; i++) if(i !== idx) others.push(i);
+  await sendGroups({'#000000': others, '#ffffff': [idx]});
+}
+const curtainEl = $('#curtain');
+curtainEl.addEventListener('pointerdown', e => {
+  const t = e.target; if(t.dataset.k === undefined) return;
+  e.preventDefault();
+  if(tool === 'locate'){ locate(+t.dataset.k); return; }
+  painting = true; last = {x: e.clientX, y: e.clientY}; applyAt(t);
+});
+window.addEventListener('pointermove', e => {
+  if(!painting) return;
+  const dx = e.clientX - last.x, dy = e.clientY - last.y, steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 4));
+  for(let i = 1; i <= steps; i++) applyAt(document.elementFromPoint(last.x + dx * i / steps, last.y + dy * i / steps));
+  last = {x: e.clientX, y: e.clientY};
+});
+function endStroke(){ if(!painting) return; painting = false; store.set('paint', paint); if($('#live').checked) sendPaint(); }
+window.addEventListener('pointerup', endStroke);
+window.addEventListener('pointercancel', endStroke);
+document.querySelectorAll('#toolSeg button').forEach(b => b.onclick = () => {
+  tool = b.dataset.tool;
+  document.querySelectorAll('#toolSeg button').forEach(x => x.classList.toggle('on', x === b));
+  if(tool !== 'locate'){ locK = null; $('#locInfo').textContent = ''; renderPaint(); }
+  else $('#locInfo').textContent = 'Tap a dot to light that LED on the curtain';
+});
+$('#brush').value = brush;
+$('#brush').addEventListener('input', e => { brush = e.target.value; store.set('brush', brush); });
+$('#fillBtn').onclick = () => { paint = paint.map(() => brush); store.set('paint', paint); renderPaint(); if($('#live').checked) sendPaint(); };
+$('#clearBtn').onclick = () => { paint = paint.map(() => null); store.set('paint', paint); renderPaint(); if($('#live').checked) sendPaint(); };
+$('#sendPaint').onclick = sendPaint;
+for(const id of ['cols', 'rows', 'order', 'snake', 'bitmapBytes']){
+  const el = $('#' + id); el.value = layout[id];
+  el.addEventListener('change', () => {
+    layout[id] = el.type === 'number' ? clamp(+el.value || +el.min, +el.min, +el.max) : el.value;
+    el.value = layout[id]; store.set('layout', layout);
+    if(id === 'cols' || id === 'rows'){ paint = []; locK = null; }
+    buildCurtain();
+  });
+}
+window.addEventListener('resize', throttle(() => { if(!$('[data-view="paint"]').hidden) buildCurtain(); }, 250));
+
+// =====================================================================
+// Advanced
+// =====================================================================
+$('#clockBtn').onclick = () => send(CMD.clock());
+$('#statusBtn').onclick = () => send(CMD.status());
+$('#rawBtn').onclick = () => {
+  const v = $('#raw').value.replace(/\s+/g, '');
+  if(!/^([0-9a-f]{2})+$/i.test(v)){ toast('Enter whole bytes in hex, like 7123', true); return; }
+  send(v.match(/../g).map(h => parseInt(h, 16)));
+};
+$('#raw').addEventListener('keydown', e => { if(e.key === 'Enter') $('#rawBtn').click(); });
+$('#copyLog').onclick = async () => {
+  const text = [...$('#log').children].map(r => r.textContent).join('\n');
+  try{ await navigator.clipboard.writeText(text); toast('Log copied'); }
+  catch(e){ const r = document.createRange(); r.selectNodeContents($('#log')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('Log selected: copy it from the menu'); }
+};
+
+// start
+pickColour(colour, false);
+renderConnection();
+showTab(store.get('tab', 'colour'));
+log('info', navigator.bluetooth ? 'Ready. Tap Connect to find the curtain.' : 'This browser has no Bluetooth support.');
+</script>
