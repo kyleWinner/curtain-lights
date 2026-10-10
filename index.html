@@ -139,6 +139,12 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 .fxgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
 .fx{display:flex;flex-direction:column;align-items:stretch;gap:7px;text-align:left;border:1px solid var(--line);
   background:var(--surface2);border-radius:14px;padding:11px;cursor:pointer;min-width:0}
+.fxgroup{grid-column:1/-1;margin-top:6px}
+.fxgroup:first-child{margin-top:0}
+.scenes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.scene{border:1px solid var(--line);background:var(--surface2);border-radius:12px;padding:8px;cursor:pointer;
+  display:flex;flex-direction:column;gap:6px;align-items:stretch;min-width:0;font-size:12.5px;text-align:left}
+.scene i{display:block;height:40px;border-radius:7px;background:var(--g)}
 .fx i{display:block;height:30px;border-radius:9px;background:var(--g);background-size:200% 100%}
 .fx b{font-weight:600;font-size:14.5px}
 .fx span{font-size:12px;color:var(--muted);line-height:1.35}
@@ -271,6 +277,8 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
         <button class="btn ghost sm" id="gradBtn">Apply</button>
         <button class="btn ghost sm" id="rainbowBtn">Rainbow</button>
       </div>
+      <div class="label" style="margin-top:16px">Halloween scenes</div>
+      <div class="scenes" id="scenes"></div>
       <div class="stage"><div class="rod"></div><div class="curtain" id="curtain"></div></div>
       <div class="locinfo" id="locInfo">Each row lights all the way across the curtain. Tap or drag to paint rows.</div>
       <label class="row" style="margin-top:6px;font-size:13.5px;color:var(--muted);gap:8px"><input type="checkbox" id="live" checked style="accent-color:var(--accent);width:18px;height:18px"> Update the curtain as I paint</label>
@@ -617,6 +625,64 @@ const FX = {
   strobe: {name: 'Strobe', desc: 'Flashes your colour',
     g: 'linear-gradient(90deg,var(--accent) 0 25%,#000 25% 50%,var(--accent) 50% 75%,#000 75% 100%)',
     fn: (t, k, st) => [st.base[0], st.base[1], (t * k * 2.5) % 1 < 0.5 ? st.base[2] : 0]},
+  // ---- Halloween ----
+  pumpkin: {group: 'Halloween', name: 'Jack-o\'-lantern', desc: 'A candle flickering inside a pumpkin',
+    g: 'linear-gradient(90deg,#ff5a00,#ff8c1a,#c84400,#ff7a00,#ff5a00)',
+    fn: (t, k, st) => {
+      if(!st.next || t > st.next){ st.target = 0.3 + Math.random() * 0.7; st.next = t + (0.04 + Math.random() * 0.18) / k; }
+      if(st.v === undefined) st.v = 0.8;
+      st.v += (st.target - st.v) * 0.5;
+      return [20 + Math.random() * 6, 1, st.v];
+    }},
+  lightning: {group: 'Halloween', name: 'Lightning storm', desc: 'Dark purple sky with sudden strikes',
+    g: 'linear-gradient(90deg,#1c0638 0 40%,#fff 45%,#1c0638 50% 70%,#e8e0ff 74%,#1c0638 78%)',
+    fn: (t, k, st) => {
+      if(st.strike === undefined) st.strike = t + 1;
+      const d = t - st.strike;
+      if(d > 1.4){ st.strike = t + (2 + Math.random() * 6) / k; st.double = Math.random() < 0.6; }
+      if(d >= 0 && d < 0.07) return [260, 0.05, 1];
+      if(st.double && d >= 0.16 && d < 0.26) return [250, 0.1, 0.9];
+      if(d >= 0.26 && d < 1.4) return [270, 0.6, Math.max(0.1, 0.7 * (1 - d / 1.4))];
+      return [272, 1, 0.1 + 0.03 * Math.sin(t * 0.7)];
+    }},
+  haunted: {group: 'Halloween', name: 'Haunted house', desc: 'Faulty bulbs that cut out and buzz',
+    g: 'linear-gradient(90deg,#ff6a00 0 30%,#000 30% 36%,#8a2be2 36% 70%,#000 70% 74%,#ff6a00 74%)',
+    fn: (t, k, st) => {
+      if(st.c === undefined){ st.c = 0; st.swap = t + 4; }
+      if(t > st.swap){ st.c ^= 1; st.swap = t + (3 + Math.random() * 4) / k; }
+      if(!st.drop || t > st.dropEnd + 0.4){ if(Math.random() < 0.02 * k){ st.drop = t; st.dropEnd = t + 0.05 + Math.random() * 0.35; } }
+      const out = st.drop && t >= st.drop && t < st.dropEnd;
+      const buzz = 0.85 + Math.random() * 0.15;
+      return st.c ? [275, 0.95, out ? 0 : buzz] : [24, 1, out ? 0 : buzz];
+    }},
+  brew: {group: 'Halloween', name: 'Witch\'s brew', desc: 'Bubbling green and purple potion',
+    g: 'linear-gradient(90deg,#39ff14,#8a2be2,#39ff14,#8a2be2)',
+    fn: (t, k, st) => {
+      const f = 0.5 - 0.5 * Math.cos(t * k * 0.6);
+      if(!st.bub || t > st.bub){ st.pop = 1; st.bub = t + (0.2 + Math.random() * 0.8) / k; }
+      st.pop = (st.pop || 0) * 0.85;
+      return [hueMix(110, 280, f), 1, 0.55 + 0.3 * Math.sin(t * k * 2.3) * 0.5 + 0.3 * st.pop];
+    }},
+  bloodmoon: {group: 'Halloween', name: 'Blood moon', desc: 'Deep red, slowly pulsing',
+    g: 'linear-gradient(90deg,#300000,#c00000,#ff1a1a,#c00000,#300000)',
+    fn: (t, k) => [358, 1, 0.18 + 0.82 * Math.pow(0.5 - 0.5 * Math.cos(2 * Math.PI * t * k / 6), 1.6)]},
+  ghost: {group: 'Halloween', name: 'Ghost', desc: 'Pale glow that drifts in and vanishes',
+    g: 'linear-gradient(90deg,#000,#bfefff,#e8faff,#000)',
+    fn: (t, k, st) => {
+      if(!st.cycle || t > st.cycle + st.len){ st.cycle = t; st.len = (4 + Math.random() * 4) / k; }
+      const p = (t - st.cycle) / st.len;
+      const v = p < 0.6 ? Math.sin(p / 0.6 * Math.PI / 2) : p < 0.63 ? 1 : 0;
+      return [190, 0.25, 0.85 * v];
+    }},
+  scare: {group: 'Halloween', name: 'Jump scare', desc: 'Eerie calm, then a red-white burst',
+    g: 'linear-gradient(90deg,#062006 0 70%,#ff1a1a 70% 78%,#fff 78% 84%,#ff1a1a 84% 92%,#062006 92%)',
+    fn: (t, k, st) => {
+      if(st.at === undefined) st.at = t + (6 + Math.random() * 8) / k;
+      const d = t - st.at;
+      if(d > 1.2) st.at = t + (6 + Math.random() * 10) / k;
+      if(d >= 0 && d <= 1.2) return Math.floor(d * 12) % 2 ? [0, 0, 1] : [0, 1, 1];
+      return [120, 0.9, 0.06 + 0.04 * Math.sin(t * 1.3)];
+    }},
   music: {name: 'Music', desc: 'Reacts to sound via the mic',
     g: 'linear-gradient(90deg,#3bd5ff,#6a3bff,#ff3bd2,#ffd23b,#3bd5ff)',
     fn: (t, k, st) => {
@@ -704,13 +770,18 @@ function renderFx(){
   $('#fxStop').hidden = !fxName;
   $('#sensRow').hidden = fxName !== 'music';
 }
-for(const [id, fx] of Object.entries(FX)){
-  const b = document.createElement('button'); b.className = 'fx'; b.dataset.fx = id;
-  b.innerHTML = '<i></i><b></b><span></span>';
-  b.children[0].style.setProperty('--g', fx.g);
-  b.children[1].textContent = fx.name; b.children[2].textContent = fx.desc;
-  b.onclick = () => fxName === id ? stopFx() : startFx(id);
-  $('#fxGrid').appendChild(b);
+for(const group of ['Everyday', 'Halloween']){
+  const head = document.createElement('div'); head.className = 'label fxgroup'; head.textContent = group;
+  $('#fxGrid').appendChild(head);
+  for(const [id, fx] of Object.entries(FX)){
+    if((fx.group || 'Everyday') !== group) continue;
+    const b = document.createElement('button'); b.className = 'fx'; b.dataset.fx = id;
+    b.innerHTML = '<i></i><b></b><span></span>';
+    b.children[0].style.setProperty('--g', fx.g);
+    b.children[1].textContent = fx.name; b.children[2].textContent = fx.desc;
+    b.onclick = () => fxName === id ? stopFx() : startFx(id);
+    $('#fxGrid').appendChild(b);
+  }
 }
 $('#fxStop').onclick = () => stopFx();
 $('#efSpeed').value = efSpeed; $('#efSpeedOut').textContent = efSpeed;
@@ -810,6 +881,36 @@ $('#gradBtn').onclick = () => {
 };
 $('#rainbowBtn').onclick = () => { rows = rows.map((_, i) => hsvToHex(i * 330 / Math.max(1, rowCount - 1), 1, 1)); renderPaint(); changed(); };
 $('#sendPaint').onclick = () => sendPaint(false);
+
+// Halloween scenes: f runs 0 (top row) to 1 (bottom row); null = row off.
+function stops(f, list){
+  for(let i = 1; i < list.length; i++){
+    const [p1, c1] = list[i - 1], [p2, c2] = list[i];
+    if(f <= p2){ if(!c1 || !c2) return f - p1 < p2 - f ? c1 : c2; return mixHex(c1, c2, (f - p1) / (p2 - p1 || 1)); }
+  }
+  return list[list.length - 1][1];
+}
+const SCENES = {
+  sky: {name: 'Spooky sky', fn: f => stops(f, [[0, '#14002e'], [0.45, '#7a1a8a'], [0.8, '#ff3c00'], [1, '#ff8a00']])},
+  candy: {name: 'Candy corn', fn: f => f < 0.3 ? '#fff2dc' : f < 0.68 ? '#ff6000' : '#ffc400'},
+  slime: {name: 'Slime', fn: (f, i) => f > 0.85 ? null : stops(f, [[0, '#39ff14'], [0.55, '#1fa30a'], [0.85, '#062b02']])},
+  pumpkin: {name: 'Pumpkin', fn: (f, i) => f < 0.1 ? '#1f8a00' : (i % 5 === 4 ? '#8a2a00' : '#ff5a00')},
+  blood: {name: 'Blood drip', fn: f => f > 0.8 ? null : stops(f, [[0, '#ff0000'], [0.5, '#8a0000'], [0.8, '#200000']])},
+  toxic: {name: 'Toxic', fn: (f, i) => Math.floor(i / 3) % 2 ? '#8a2be2' : '#39ff14'},
+};
+for(const [id, sc] of Object.entries(SCENES)){
+  const b = document.createElement('button'); b.className = 'scene';
+  const prev = Array.from({length: 12}, (_, i) => sc.fn(i / 11, Math.round(i * 29 / 11)) || '#000000');
+  b.innerHTML = '<i></i><span></span>';
+  b.children[0].style.setProperty('--g', `linear-gradient(180deg,${prev.map((c, i) => `${c} ${i * 100 / 12}% ${(i + 1) * 100 / 12}%`).join(',')})`);
+  b.children[1].textContent = sc.name;
+  b.onclick = () => {
+    rows = rows.map((_, i) => sc.fn(rowCount > 1 ? i / (rowCount - 1) : 0, i));
+    renderPaint(); saveRows();
+    if(isConnected()) sendPaint(false); else toast('Connect to the curtain to send it');
+  };
+  $('#scenes').appendChild(b);
+}
 $('#rowCount').value = rowCount;
 $('#rowCount').addEventListener('change', e => {
   rowCount = clamp(+e.target.value || 30, 1, 33); e.target.value = rowCount; store.set('rowCount', rowCount);
