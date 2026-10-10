@@ -136,6 +136,15 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 .log .t{color:var(--faint);margin-right:7px}
 .log .tx{color:#86b6ff}.log .rx{color:#7ee2a8}.log .err{color:var(--err)}.log .info{color:var(--muted)}
 
+.fxgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+.fx{display:flex;flex-direction:column;align-items:stretch;gap:7px;text-align:left;border:1px solid var(--line);
+  background:var(--surface2);border-radius:14px;padding:11px;cursor:pointer;min-width:0}
+.fx i{display:block;height:30px;border-radius:9px;background:var(--g);background-size:200% 100%}
+.fx b{font-weight:600;font-size:14.5px}
+.fx span{font-size:12px;color:var(--muted);line-height:1.35}
+.fx.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.fx.on i{animation:fxpan 2.4s linear infinite}
+@keyframes fxpan{to{background-position:200% 0}}
 .tests{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
 .test{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--line);background:var(--surface2);
   border-radius:12px;padding:10px 12px;cursor:pointer;min-width:0}
@@ -224,21 +233,22 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
     <section class="panel" data-view="effects" hidden>
       <div class="head">
         <h2>Effects</h2>
-        <div class="row">
-          <button class="btn ghost sm" id="favBtn">☆ Save</button>
-          <div class="stepper"><button id="prevEf" aria-label="Previous effect">‹</button><span id="efNum">1</span><button id="nextEf" aria-label="Next effect">›</button></div>
-        </div>
+        <button class="btn sm" id="fxStop" hidden>Stop effect</button>
       </div>
-      <div class="effects" id="effects"></div>
+      <div class="fxgrid" id="fxGrid"></div>
       <div class="slider">
-        <div class="lbl"><span>Speed</span><span id="efSpeedOut">80</span></div>
-        <input type="range" id="efSpeed" min="0" max="100" value="80" aria-label="Effect speed">
+        <div class="lbl"><span>Speed</span><span id="efSpeedOut">50</span></div>
+        <input type="range" id="efSpeed" min="1" max="100" value="50" aria-label="Effect speed">
       </div>
       <div class="slider" style="margin-top:4px">
-        <div class="lbl"><span>Brightness</span><span id="efBrightOut">80</span></div>
-        <input type="range" id="efBright" min="1" max="100" value="80" aria-label="Effect brightness">
+        <div class="lbl"><span>Brightness</span><span id="efBrightOut">100%</span></div>
+        <input type="range" id="efBright" min="5" max="100" value="100" aria-label="Effect brightness">
       </div>
-      <p class="hint">Effects don't work on your curtain model yet: it uses a different effect command, which we're still working out. Colour, brightness and on/off work.</p>
+      <div class="slider" id="sensRow" hidden style="margin-top:4px">
+        <div class="lbl"><span>Mic sensitivity</span><span id="sensOut">50</span></div>
+        <input type="range" id="sens" min="1" max="100" value="50" aria-label="Microphone sensitivity">
+      </div>
+      <p class="hint">These effects run from this page, so keep it open while one plays; the screen stays awake. Breathe and Strobe use the colour picked on the Colour tab. Picking a colour or switching off stops the effect.</p>
     </section>
 
     <!-- painter -->
@@ -247,6 +257,7 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
         <h2>Painter</h2>
         <button class="btn sm" id="sendPaint">Send to curtain</button>
       </div>
+      <div class="notice" style="margin-top:12px"><b>Not working on your curtain yet.</b> Your model uses a different per-LED command that hasn't been decoded, so painting here won't change the curtain for now.</div>
       <div class="tools">
         <div class="seg" id="toolSeg"><button data-tool="paint" class="on">Paint</button><button data-tool="erase">Erase</button><button data-tool="locate">Locate</button></div>
         <input type="color" class="brush" id="brush" value="#ff7a3d" aria-label="Brush colour">
@@ -476,13 +487,13 @@ async function openGatt(){
     writeChar = null; renderConnection(); toast(e.message, true); log('err', e.message);
   }
 }
-function send(payload, quiet){
+function send(payload, quiet, noLog){
   if(!isConnected()){ if(!quiet) toast('Connect to the curtain first', true); return Promise.resolve(false); }
   const job = queue.then(async () => {
     if(!isConnected()) return false;
     seq = (seq + 1) & 255;
     const f = frame(seq, payload);
-    log('tx', toHex(f));
+    if(!noLog) log('tx', toHex(f));
     if(withResponse) await writeChar.writeValueWithResponse(f); else await writeChar.writeValueWithoutResponse(f);
     return true;
   }).catch(e => { log('err', e.message); toast(e.message, true); return false; });
@@ -531,7 +542,7 @@ function pickColour(hex, doSend){
   colour = hex.toLowerCase(); whiteMode = false; store.set('colour', colour);
   $('#colour').value = colour; setAccent(colour); updateReadout();
   document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', s.dataset.hex === colour));
-  if(doSend){ if(!isConnected()) toast('Connect to the curtain first', true); else pushColour(); }
+  if(doSend){ stopFx(); if(!isConnected()) toast('Connect to the curtain first', true); else pushColour(); }
 }
 for(const hex of SWATCHES){
   const b = document.createElement('button'); b.className = 'sw'; b.dataset.hex = hex; b.style.background = hex;
@@ -542,15 +553,16 @@ $('#colour').addEventListener('input', e => pickColour(e.target.value, true));
 $('#bright').value = bright; $('#brightOut').textContent = bright + '%';
 $('#bright').addEventListener('input', e => {
   bright = +e.target.value; store.set('bright', bright); $('#brightOut').textContent = bright + '%'; updateReadout();
-  if(isConnected()) pushColour();
+  stopFx(); if(isConnected()) pushColour();
 });
 $('#whiteBtn').onclick = () => {
-  whiteMode = true; setAccent('#e9ecff'); updateReadout();
+  stopFx(); whiteMode = true; setAccent('#e9ecff'); updateReadout();
   document.querySelectorAll('.sw').forEach(s => s.classList.remove('sel'));
   send(colourCmd(0, 0, bright / 100));
 };
 $('#warmBtn').onclick = () => pickColour('#ffaa50', true);
 document.querySelectorAll('#powerSeg button').forEach(b => b.onclick = async () => {
+  if(b.dataset.power === '0') stopFx();
   if(await send(CMD.power(b.dataset.power === '1')))
     document.querySelectorAll('#powerSeg button').forEach(x => x.classList.toggle('on', x === b));
 });
@@ -558,32 +570,154 @@ document.querySelectorAll('#powerSeg button').forEach(b => b.onclick = async () 
 // =====================================================================
 // Effects
 // =====================================================================
-const EF_MAX = 60;
-let ef = store.get('effect', 1), favs = new Set(store.get('favs', []));
-let efSpeed = store.get('efSpeed', 80), efBright = store.get('efBright', 80);
-const pushEffect = throttle(() => send(CMD.effect(ef, efSpeed, efBright), true), 200);
+// The curtain's own effect command isn't decoded yet, so effects are
+// animated here: the page streams colour commands, newest frame wins.
+function hsvToHex(h, s, v){
+  const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+  return '#' + [f(5), f(3), f(1)].map(x => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
+}
+const smooth = x => x * x * (3 - 2 * x);
+function hueMix(a, b, f){ let d = ((b - a + 540) % 360) - 180; return (a + d * f + 360) % 360; }
+const FADE_HUES = [0, 25, 50, 120, 185, 220, 270, 315];
 
-for(let i = 1; i <= EF_MAX; i++){
-  const b = document.createElement('button'); b.className = 'ef'; b.textContent = i; b.dataset.n = i;
-  b.onclick = () => pickEffect(i); $('#effects').appendChild(b);
+const FX = {
+  rainbow: {name: 'Rainbow', desc: 'Every hue, round and round',
+    g: 'linear-gradient(90deg,#ff3b3b,#ffd23b,#3bff6a,#3bd5ff,#6a3bff,#ff3bd2,#ff3b3b)',
+    fn: (t, k) => [(t * k * 30) % 360, 1, 1]},
+  fade: {name: 'Colour fade', desc: 'Drifts slowly between colours',
+    g: 'linear-gradient(90deg,#ff3b3b,#ff9a3b,#3bff9a,#3b8cff,#b43bff,#ff3b3b)',
+    fn: (t, k) => { const P = 4 / k, i = Math.floor(t / P), f = smooth((t / P) % 1);
+      return [hueMix(FADE_HUES[i % 8], FADE_HUES[(i + 1) % 8], f), 1, 1]; }},
+  breathe: {name: 'Breathe', desc: 'Your colour, rising and falling',
+    g: 'linear-gradient(90deg,#000,var(--accent),#000)',
+    fn: (t, k, st) => [st.base[0], st.base[1], st.base[2] * (0.06 + 0.94 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t * k / 4)))]},
+  candle: {name: 'Candle', desc: 'Warm, flickering glow',
+    g: 'linear-gradient(90deg,#ff7a1a,#ffb347,#ff8a2a,#ffc266,#ff7a1a)',
+    fn: (t, k, st) => {
+      if(!st.next || t > st.next){ st.target = 0.35 + Math.random() * 0.65; st.next = t + (0.05 + Math.random() * 0.25) / k; }
+      if(st.v === undefined) st.v = 0.8;
+      st.v += (st.target - st.v) * 0.45;
+      return [24 + Math.sin(t * 3) * 4, 0.92, st.v];
+    }},
+  sunset: {name: 'Sunset', desc: 'Slow amber, rose and violet',
+    g: 'linear-gradient(90deg,#ff8a1a,#ff4d6d,#b14dff,#ff4d6d,#ff8a1a)',
+    fn: (t, k) => { const hs = [28, 350, 290, 350], P = 6 / k, i = Math.floor(t / P), f = smooth((t / P) % 1);
+      return [hueMix(hs[i % 4], hs[(i + 1) % 4], f), 1, 0.9]; }},
+  police: {name: 'Red & blue', desc: 'Alternating red and blue flashes',
+    g: 'linear-gradient(90deg,#ff2a2a 0 50%,#2a5bff 50% 100%)',
+    fn: (t, k) => { const ph = (t * k * 1.5) % 1; return ph < 0.5 ? [0, 1, ph < 0.4 ? 1 : 0] : [225, 1, ph < 0.9 ? 1 : 0]; }},
+  strobe: {name: 'Strobe', desc: 'Flashes your colour',
+    g: 'linear-gradient(90deg,var(--accent) 0 25%,#000 25% 50%,var(--accent) 50% 75%,#000 75% 100%)',
+    fn: (t, k, st) => [st.base[0], st.base[1], (t * k * 2.5) % 1 < 0.5 ? st.base[2] : 0]},
+  music: {name: 'Music', desc: 'Reacts to sound via the mic',
+    g: 'linear-gradient(90deg,#3bd5ff,#6a3bff,#ff3bd2,#ffd23b,#3bd5ff)',
+    fn: (t, k, st) => {
+      if(!audio) return [0, 0, 0];
+      const lvl = micLevel();
+      audio.avg = audio.avg * 0.96 + lvl * 0.04;
+      const div = 3.4 - (sens / 100) * 2.8;
+      const v = Math.pow(clamp(lvl / (audio.avg * div + 0.002), 0, 1), 1.4);
+      st.hue = ((st.hue ?? 200) + 0.4 * k) % 360;
+      if(lvl > audio.avg * 1.7 && t - (st.beat ?? 0) > 0.2){ st.beat = t; st.hue = (st.hue + 50 + Math.random() * 80) % 360; }
+      return [st.hue, 1, Math.max(0.04, v)];
+    }},
+};
+
+let efSpeed = store.get('fxSpeed', 50), efBright = store.get('fxBright', 100), sens = store.get('sens', 50);
+let fxName = null, fxTimer = null, fxStart = 0, fxState = {}, fxLastKey = '', fxLastAccent = 0;
+let fxPending = null, fxBusy = false, audio = null, wakeLock = null;
+
+function fxPush(cmd){ fxPending = cmd; if(!fxBusy) pump(); }
+async function pump(){
+  fxBusy = true;
+  while(fxPending){ const c = fxPending; fxPending = null; await send(c, true, true); }
+  fxBusy = false;
 }
-function renderEffects(){
-  $('#efNum').textContent = ef;
-  document.querySelectorAll('.ef').forEach(b => { const n = +b.dataset.n; b.classList.toggle('on', n === ef); b.classList.toggle('fav', favs.has(n)); });
-  $('#favBtn').textContent = favs.has(ef) ? '★ Saved' : '☆ Save';
+async function keepAwake(on){
+  try{
+    if(on && !wakeLock && navigator.wakeLock){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); }
+    if(!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
+  }catch(e){}
 }
-function pickEffect(n){
-  ef = clamp(n, 1, EF_MAX); store.set('effect', ef); renderEffects();
-  if(!isConnected()) toast('Connect to the curtain first', true); else pushEffect();
+document.addEventListener('visibilitychange', () => { if(fxName && document.visibilityState === 'visible') keepAwake(true); });
+
+async function startMic(){
+  const stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const an = ctx.createAnalyser(); an.fftSize = 1024;
+  ctx.createMediaStreamSource(stream).connect(an);
+  audio = {stream, ctx, an, buf: new Float32Array(an.fftSize), avg: 0.02};
 }
-$('#prevEf').onclick = () => pickEffect(ef - 1);
-$('#nextEf').onclick = () => pickEffect(ef + 1);
-$('#favBtn').onclick = () => { favs.has(ef) ? favs.delete(ef) : favs.add(ef); store.set('favs', [...favs]); renderEffects(); };
+function stopMic(){
+  if(!audio) return;
+  audio.stream.getTracks().forEach(tr => tr.stop());
+  try{ audio.ctx.close(); }catch(e){}
+  audio = null;
+}
+function micLevel(){
+  audio.an.getFloatTimeDomainData(audio.buf);
+  let s = 0; for(const x of audio.buf) s += x * x;
+  return Math.sqrt(s / audio.buf.length);
+}
+
+async function startFx(name){
+  if(!isConnected()){ toast('Connect to the curtain first', true); return; }
+  stopFx(true);
+  if(name === 'music'){
+    try{ await startMic(); }
+    catch(e){ toast('Music mode needs the microphone. Allow it for this site in Chrome and try again.', true); log('err', e.message); return; }
+  }
+  fxName = name; fxStart = performance.now(); fxLastKey = '';
+  fxState = {base: whiteMode ? [0, 0, 1] : rgbToHsv(...hexToRgb(colour))};
+  fxTimer = setInterval(fxTick, 70);
+  keepAwake(true); renderFx();
+  log('info', 'Effect started: ' + FX[name].name);
+}
+function stopFx(silent){
+  if(!fxName) return;
+  clearInterval(fxTimer); fxTimer = null; fxName = null; fxPending = null;
+  stopMic(); keepAwake(false); renderFx();
+  if(!whiteMode) setAccent(colour);
+  if(!silent) log('info', 'Effect stopped');
+}
+function fxTick(){
+  if(!isConnected()){ stopFx(); return; }
+  const t = (performance.now() - fxStart) / 1000, k = 0.2 + (efSpeed / 100) * 2.8;
+  const [h, s, v] = FX[fxName].fn(t, k, fxState);
+  const vv = clamp(v, 0, 1) * efBright / 100;
+  const p = hsvLevels(h, s, vv), key = `${p.hue},${p.sat},${p.val}`;
+  if(key === fxLastKey) return;
+  fxLastKey = key;
+  fxPush(colourCmd(h, s, vv));
+  if(t - fxLastAccent > 0.25 && vv > 0.2){ fxLastAccent = t; setAccent(hsvToHex(h, s, 1)); }
+}
+function renderFx(){
+  document.querySelectorAll('.fx').forEach(b => b.classList.toggle('on', b.dataset.fx === fxName));
+  $('#fxStop').hidden = !fxName;
+  $('#sensRow').hidden = fxName !== 'music';
+}
+for(const [id, fx] of Object.entries(FX)){
+  const b = document.createElement('button'); b.className = 'fx'; b.dataset.fx = id;
+  b.innerHTML = '<i></i><b></b><span></span>';
+  b.children[0].style.setProperty('--g', fx.g);
+  b.children[1].textContent = fx.name; b.children[2].textContent = fx.desc;
+  b.onclick = () => fxName === id ? stopFx() : startFx(id);
+  $('#fxGrid').appendChild(b);
+}
+$('#fxStop').onclick = () => stopFx();
 $('#efSpeed').value = efSpeed; $('#efSpeedOut').textContent = efSpeed;
-$('#efBright').value = efBright; $('#efBrightOut').textContent = efBright;
-$('#efSpeed').addEventListener('input', e => { efSpeed = +e.target.value; $('#efSpeedOut').textContent = efSpeed; store.set('efSpeed', efSpeed); if(isConnected()) pushEffect(); });
-$('#efBright').addEventListener('input', e => { efBright = +e.target.value; $('#efBrightOut').textContent = efBright; store.set('efBright', efBright); if(isConnected()) pushEffect(); });
-renderEffects();
+$('#efBright').value = efBright; $('#efBrightOut').textContent = efBright + '%';
+$('#sens').value = sens; $('#sensOut').textContent = sens;
+$('#efSpeed').addEventListener('input', e => {
+  // keep the animation's position continuous when the speed changes
+  const now = performance.now(), kOld = 0.2 + (efSpeed / 100) * 2.8;
+  efSpeed = +e.target.value; const kNew = 0.2 + (efSpeed / 100) * 2.8;
+  if(fxName) fxStart = now - (now - fxStart) * kOld / kNew;
+  $('#efSpeedOut').textContent = efSpeed; store.set('fxSpeed', efSpeed);
+});
+$('#efBright').addEventListener('input', e => { efBright = +e.target.value; $('#efBrightOut').textContent = efBright + '%'; store.set('fxBright', efBright); });
+$('#sens').addEventListener('input', e => { sens = +e.target.value; $('#sensOut').textContent = sens; store.set('sens', sens); });
+renderFx();
 
 // =====================================================================
 // Painter
@@ -739,7 +873,7 @@ function buildTests(list, el, kind){
     const b = document.createElement('button'); b.className = 'test';
     b.innerHTML = '<b></b><span></span>'; b.children[0].textContent = id; b.children[1].textContent = label;
     b.onclick = async () => {
-      log('info', `${kind} test ${id}: ${label}`);
+      stopFx(); log('info', `${kind} test ${id}: ${label}`);
       if(await send(bytes)){ b.classList.add('tried'); toast(`Sent test ${id}. Did the curtain change?`); }
     };
     el.appendChild(b);
