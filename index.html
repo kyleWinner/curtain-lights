@@ -257,27 +257,30 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
         <h2>Painter</h2>
         <button class="btn sm" id="sendPaint">Send to curtain</button>
       </div>
-      <div class="notice" style="margin-top:12px"><b>Not working on your curtain yet.</b> Your model uses a different per-LED command that hasn't been decoded, so painting here won't change the curtain for now.</div>
       <div class="tools">
-        <div class="seg" id="toolSeg"><button data-tool="paint" class="on">Paint</button><button data-tool="erase">Erase</button><button data-tool="locate">Locate</button></div>
+        <div class="seg" id="toolSeg"><button data-tool="paint" class="on">Paint</button><button data-tool="erase">Off</button></div>
         <input type="color" class="brush" id="brush" value="#ff7a3d" aria-label="Brush colour">
         <button class="btn ghost sm" id="fillBtn">Fill</button>
         <button class="btn ghost sm" id="clearBtn">Clear</button>
       </div>
+      <div class="tools">
+        <span class="label" style="margin-right:2px">Gradient</span>
+        <input type="color" class="brush" id="gradTop" value="#ff2a2a" aria-label="Top colour">
+        <span aria-hidden="true" style="color:var(--muted)">↓</span>
+        <input type="color" class="brush" id="gradBottom" value="#2a7cff" aria-label="Bottom colour">
+        <button class="btn ghost sm" id="gradBtn">Apply</button>
+        <button class="btn ghost sm" id="rainbowBtn">Rainbow</button>
+      </div>
       <div class="stage"><div class="rod"></div><div class="curtain" id="curtain"></div></div>
-      <div class="locinfo" id="locInfo"></div>
-      <label class="row" style="margin-top:6px;font-size:13.5px;color:var(--muted);gap:8px"><input type="checkbox" id="live" style="accent-color:var(--accent);width:18px;height:18px"> Send after every stroke</label>
+      <div class="locinfo" id="locInfo">Each row lights all the way across the curtain. Tap or drag to paint rows.</div>
+      <label class="row" style="margin-top:6px;font-size:13.5px;color:var(--muted);gap:8px"><input type="checkbox" id="live" checked style="accent-color:var(--accent);width:18px;height:18px"> Update the curtain as I paint</label>
       <details class="sub">
-        <summary>Layout</summary>
+        <summary>Rows</summary>
         <div class="fields">
-          <div class="field"><label for="cols">Strands</label><input type="number" id="cols" min="1" max="60" value="10"></div>
-          <div class="field"><label for="rows">LEDs per strand</label><input type="number" id="rows" min="1" max="60" value="30"></div>
-          <div class="field"><label for="order">LED order</label><select id="order"><option value="cols">Down each strand</option><option value="rows">Across each row</option></select></div>
-          <div class="field"><label for="snake">Direction</label><select id="snake"><option value="0">Same way each line</option><option value="1">Zig-zag</option></select></div>
-          <div class="field"><label for="bitmapBytes">Bitmap bytes</label><input type="number" id="bitmapBytes" min="1" max="200" value="50"></div>
+          <div class="field"><label for="rowCount">Rows on your curtain</label><input type="number" id="rowCount" min="1" max="33" value="30"></div>
         </div>
+        <p class="hint">Your curtain has 30 rows of 10 LEDs. All 10 LEDs in a row share one colour, because the strands are wired together.</p>
       </details>
-      <p class="hint">Use <b>Locate</b> and tap a dot to light just that LED. If a different LED lights up on the curtain, change the layout until they match.</p>
     </section>
 
     <!-- more -->
@@ -725,106 +728,93 @@ $('#sens').addEventListener('input', e => { sens = +e.target.value; $('#sensOut'
 renderFx();
 
 // =====================================================================
-// Painter
+// Painter: the curtain is addressable by row (30 rows x 10 strands,
+// strands wired in parallel), painted with the decoded smear command.
 // =====================================================================
-const layout = Object.assign({cols: 10, rows: 30, order: 'cols', snake: '0', bitmapBytes: 50}, store.get('layout', {}));
-let paint = store.get('paint', []), tool = 'paint', brush = store.get('brush', '#ff7a3d');
-let painting = false, last = null, locK = null;
+const STRANDS = 10;
+let rowCount = clamp(store.get('rowCount', 30), 1, 33);
+let rows = store.get('rows', null);
+if(!Array.isArray(rows) || rows.length !== rowCount) rows = new Array(rowCount).fill(null);
+let tool = 'paint', brush = store.get('brush', '#ff7a3d'), painting = false, last = null;
 
-function ledIndex(r, c){
-  const {cols, rows, order} = layout, snake = layout.snake === '1';
-  return order === 'cols' ? c * rows + (snake && c % 2 ? rows - 1 - r : r) : r * cols + (snake && r % 2 ? cols - 1 - c : c);
-}
 function buildCurtain(){
   const el = $('#curtain'); el.innerHTML = '';
-  const {cols, rows} = layout;
   const avail = Math.min(($('.stage').clientWidth || 340) - 20, 480);
-  const cs = clamp(Math.min(Math.floor(avail / cols) - 3, Math.floor(560 / rows) - 3), 7, 22);
+  const cs = clamp(Math.min(Math.floor(avail / STRANDS) - 3, Math.floor(560 / rowCount) - 3), 7, 22);
   el.style.setProperty('--cs', cs + 'px');
-  el.style.gridTemplateColumns = `repeat(${cols}, var(--cs))`;
-  if(paint.length !== cols * rows) paint = new Array(cols * rows).fill(null);
+  el.style.gridTemplateColumns = `repeat(${STRANDS}, var(--cs))`;
   const frag = document.createDocumentFragment();
-  for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
-    const d = document.createElement('div'); d.className = 'cell'; d.dataset.k = r * cols + c; frag.appendChild(d);
+  for(let r = 0; r < rowCount; r++) for(let c = 0; c < STRANDS; c++){
+    const d = document.createElement('div'); d.className = 'cell'; d.dataset.r = r; frag.appendChild(d);
   }
   el.appendChild(frag); renderPaint();
 }
-function renderPaint(){
-  document.querySelectorAll('.cell').forEach(d => {
-    const k = +d.dataset.k, v = paint[k];
-    d.classList.toggle('lit', !!v); d.style.setProperty('--c', v || 'transparent'); d.classList.toggle('loc', k === locK);
-  });
+function paintRowCells(r){
+  const v = rows[r];
+  document.querySelectorAll(`.cell[data-r="${r}"]`).forEach(d => { d.classList.toggle('lit', !!v); d.style.setProperty('--c', v || 'transparent'); });
 }
+function renderPaint(){ for(let r = 0; r < rowCount; r++) paintRowCells(r); }
+function saveRows(){ store.set('rows', rows); }
 function applyAt(el){
-  if(!el || !el.dataset || el.dataset.k === undefined) return;
-  const k = +el.dataset.k, v = tool === 'erase' ? null : brush;
-  if(paint[k] === v) return;
-  paint[k] = v; el.classList.toggle('lit', !!v); el.style.setProperty('--c', v || 'transparent');
+  if(!el || !el.dataset || el.dataset.r === undefined) return false;
+  const r = +el.dataset.r, v = tool === 'erase' ? null : brush;
+  if(rows[r] === v) return false;
+  rows[r] = v; paintRowCells(r); return true;
 }
-function groups(){
-  const {cols, rows} = layout, g = {};
-  for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
-    const v = paint[r * cols + c] || '#000000'; (g[v] = g[v] || []).push(ledIndex(r, c));
-  }
-  return g;
+const rowPoints = () => rows.map(hex => hex ? ledHsv(hex) : [0, 0, 0]);
+async function sendPaint(quiet){
+  if(!isConnected()){ if(!quiet) toast('Connect to the curtain first', true); return; }
+  stopFx();
+  if(await send(smearCmd(rowPoints(), {preview: 0}), true) && !quiet) toast('Sent to curtain');
 }
-async function sendGroups(g){
-  // Merge colours that encode to the same value; unlit pixels go first.
-  const byCode = new Map();
-  for(const [hex, idxs] of Object.entries(g)){ const c = encHex(hex); byCode.set(c, (byCode.get(c) || []).concat(idxs)); }
-  const codes = [...byCode.keys()].sort((a, b) => ((a & 31) !== 0) - ((b & 31) !== 0));
-  let ok = true;
-  for(const c of codes) ok = (await send(CMD.pixels(c, byCode.get(c), layout.bitmapBytes), true)) && ok;
-  return ok;
-}
-async function sendPaint(){
-  if(!isConnected()){ toast('Connect to the curtain first', true); return; }
-  if(await sendGroups(groups())) toast('Sent to curtain');
-}
-async function locate(k){
-  const {cols, rows} = layout, r = Math.floor(k / cols), c = k % cols, idx = ledIndex(r, c);
-  locK = k; renderPaint();
-  $('#locInfo').textContent = `LED ${idx} · strand ${c + 1}, ${r + 1} from the top`;
-  if(!isConnected()){ toast('Connect to the curtain first', true); return; }
-  const others = []; for(let i = 0; i < cols * rows; i++) if(i !== idx) others.push(i);
-  await sendGroups({'#000000': others, '#ffffff': [idx]});
-}
+const pushPaint = throttle(() => sendPaint(true), 300);
+function changed(){ saveRows(); if($('#live').checked && isConnected()) pushPaint(); }
+
 const curtainEl = $('#curtain');
 curtainEl.addEventListener('pointerdown', e => {
-  const t = e.target; if(t.dataset.k === undefined) return;
+  const t = e.target; if(t.dataset.r === undefined) return;
   e.preventDefault();
-  if(tool === 'locate'){ locate(+t.dataset.k); return; }
-  painting = true; last = {x: e.clientX, y: e.clientY}; applyAt(t);
+  painting = true; last = {x: e.clientX, y: e.clientY};
+  if(applyAt(t) && $('#live').checked && isConnected()) pushPaint();
 });
 window.addEventListener('pointermove', e => {
   if(!painting) return;
   const dx = e.clientX - last.x, dy = e.clientY - last.y, steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 4));
-  for(let i = 1; i <= steps; i++) applyAt(document.elementFromPoint(last.x + dx * i / steps, last.y + dy * i / steps));
+  let any = false;
+  for(let i = 1; i <= steps; i++) any = applyAt(document.elementFromPoint(last.x + dx * i / steps, last.y + dy * i / steps)) || any;
   last = {x: e.clientX, y: e.clientY};
+  if(any && $('#live').checked && isConnected()) pushPaint();
 });
-function endStroke(){ if(!painting) return; painting = false; store.set('paint', paint); if($('#live').checked) sendPaint(); }
+function endStroke(){ if(!painting) return; painting = false; changed(); }
 window.addEventListener('pointerup', endStroke);
 window.addEventListener('pointercancel', endStroke);
 document.querySelectorAll('#toolSeg button').forEach(b => b.onclick = () => {
   tool = b.dataset.tool;
   document.querySelectorAll('#toolSeg button').forEach(x => x.classList.toggle('on', x === b));
-  if(tool !== 'locate'){ locK = null; $('#locInfo').textContent = ''; renderPaint(); }
-  else $('#locInfo').textContent = 'Tap a dot to light that LED on the curtain';
 });
 $('#brush').value = brush;
 $('#brush').addEventListener('input', e => { brush = e.target.value; store.set('brush', brush); });
-$('#fillBtn').onclick = () => { paint = paint.map(() => brush); store.set('paint', paint); renderPaint(); if($('#live').checked) sendPaint(); };
-$('#clearBtn').onclick = () => { paint = paint.map(() => null); store.set('paint', paint); renderPaint(); if($('#live').checked) sendPaint(); };
-$('#sendPaint').onclick = sendPaint;
-for(const id of ['cols', 'rows', 'order', 'snake', 'bitmapBytes']){
-  const el = $('#' + id); el.value = layout[id];
-  el.addEventListener('change', () => {
-    layout[id] = el.type === 'number' ? clamp(+el.value || +el.min, +el.min, +el.max) : el.value;
-    el.value = layout[id]; store.set('layout', layout);
-    if(id === 'cols' || id === 'rows'){ paint = []; locK = null; }
-    buildCurtain();
-  });
+$('#fillBtn').onclick = () => { rows = rows.map(() => brush); renderPaint(); changed(); };
+$('#clearBtn').onclick = () => { rows = rows.map(() => null); renderPaint(); changed(); };
+function mixHex(a, b, f){
+  const A = hexToRgb(a), B = hexToRgb(b);
+  return '#' + A.map((x, i) => Math.round(x + (B[i] - x) * f).toString(16).padStart(2, '0')).join('');
 }
+$('#gradTop').value = store.get('gradTop', '#ff2a2a');
+$('#gradBottom').value = store.get('gradBottom', '#2a7cff');
+$('#gradBtn').onclick = () => {
+  const a = $('#gradTop').value, b = $('#gradBottom').value;
+  store.set('gradTop', a); store.set('gradBottom', b);
+  rows = rows.map((_, i) => mixHex(a, b, rowCount > 1 ? i / (rowCount - 1) : 0));
+  renderPaint(); changed();
+};
+$('#rainbowBtn').onclick = () => { rows = rows.map((_, i) => hsvToHex(i * 330 / Math.max(1, rowCount - 1), 1, 1)); renderPaint(); changed(); };
+$('#sendPaint').onclick = () => sendPaint(false);
+$('#rowCount').value = rowCount;
+$('#rowCount').addEventListener('change', e => {
+  rowCount = clamp(+e.target.value || 30, 1, 33); e.target.value = rowCount; store.set('rowCount', rowCount);
+  rows = Array.from({length: rowCount}, (_, i) => rows[i] ?? null); saveRows(); buildCurtain();
+});
 window.addEventListener('resize', throttle(() => { if(!$('[data-view="paint"]').hidden) buildCurtain(); }, 250));
 
 // =====================================================================
