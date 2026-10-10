@@ -355,7 +355,10 @@ function colourCmd(h, s, v){
   const p = hsvLevels(h, s, v);
   return [0xe0, 0x01, 0x00, 0xa1, p.hue, p.sat, p.val, 0x00, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00];
 }
-function colourCmdHex(hex, bright = 1){ const [h, s, v] = rgbToHsv(...hexToRgb(hex)); return colourCmd(h, s, v * bright); }
+// Screen colours are gamma-encoded; LEDs are linear. Linearise first so small
+// amounts of other channels don't wash colours out (red turning pink).
+function ledHsv(hex){ return rgbToHsv(...hexToRgb(hex).map(c => Math.pow(c / 255, 2.2) * 255)); }
+function colourCmdHex(hex, bright = 1){ const [h, s, v] = ledHsv(hex); return colourCmd(h, s, v * bright); }
 
 const CMD = {
   power: on => [0x71, on ? 0x23 : 0x24],
@@ -533,7 +536,7 @@ function updateReadout(){
     $('#hexOut').textContent = 'WHITE'; $('#encOut').textContent = `sat 0 · level ${p.val}`;
     return;
   }
-  const [h, s, v] = rgbToHsv(...hexToRgb(colour)), p = hsvLevels(h, s, v * bright / 100);
+  const [h, s, v] = ledHsv(colour), p = hsvLevels(h, s, v * bright / 100);
   $('#hexOut').textContent = colour.toUpperCase();
   $('#encOut').textContent = `hue ${p.hue} · sat ${p.sat} · level ${p.val}`;
 }
@@ -560,7 +563,7 @@ $('#whiteBtn').onclick = () => {
   document.querySelectorAll('.sw').forEach(s => s.classList.remove('sel'));
   send(colourCmd(0, 0, bright / 100));
 };
-$('#warmBtn').onclick = () => pickColour('#ffaa50', true);
+$('#warmBtn').onclick = () => pickColour('#ffd3a0', true);
 document.querySelectorAll('#powerSeg button').forEach(b => b.onclick = async () => {
   if(b.dataset.power === '0') stopFx();
   if(await send(CMD.power(b.dataset.power === '1')))
@@ -668,7 +671,7 @@ async function startFx(name){
     catch(e){ toast('Music mode needs the microphone. Allow it for this site in Chrome and try again.', true); log('err', e.message); return; }
   }
   fxName = name; fxStart = performance.now(); fxLastKey = '';
-  fxState = {base: whiteMode ? [0, 0, 1] : rgbToHsv(...hexToRgb(colour))};
+  fxState = {base: whiteMode ? [0, 0, 1] : ledHsv(colour)};
   fxTimer = setInterval(fxTick, 70);
   keepAwake(true); renderFx();
   log('info', 'Effect started: ' + FX[name].name);
