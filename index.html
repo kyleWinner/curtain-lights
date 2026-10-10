@@ -288,6 +288,8 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
       <div class="tests" id="colourTests"></div>
       <div class="label" style="margin-top:16px">Effect tests: each tries to start an animated effect</div>
       <div class="tests" id="effectTests"></div>
+      <div class="label" style="margin-top:16px">Painting tests: set the curtain to blue first, then try each</div>
+      <div class="tests" id="paintTests"></div>
     </section>
 
     <section class="panel" data-view="more" hidden>
@@ -884,6 +886,29 @@ function buildTests(list, el, kind){
 }
 buildTests(COLOUR_TESTS, $('#colourTests'), 'Colour');
 buildTests(EFFECT_TESTS, $('#effectTests'), 'Effect');
+
+// Painting ("smear") command decoded from the Surplife app (symphony E1 protocol):
+// header  E1 04 <preview> <mode> <mode2> <speed> <bright> <count hi> <count lo>
+// per LED <type<<3 | white> <(hue<<7 | sat) hi> <lo> <level> <speed>
+function smearEntry(h, s, v, type = 0, speed = 0){
+  const hs = ((Math.round(h) % 360) << 7) | clamp(Math.round(s * 100), 0, 100);
+  return [(type << 3) & 0xf8, hs >> 8, hs & 255, clamp(Math.round(v * 100), 0, 100), speed];
+}
+function smearCmd(points, {preview = 1, mode = 0, mode2 = 0, speed = 80, bright = 100} = {}){
+  const n = points.length;
+  return [0xe1, 0x04, preview, mode, mode2, speed, bright, n >> 8, n & 255, ...points.flatMap(p => smearEntry(...p))];
+}
+const RED = [0, 1, 1], GREEN = [120, 1, 1], BLUE = [230, 1, 1];
+const tenRed = Array(10).fill(RED);
+const PAINT_TESTS = [
+  ['P1', 'First 10 LEDs red (live)', smearCmd(tenRed)],
+  ['P2', 'First 10 LEDs red (saved)', smearCmd(tenRed, {preview: 0})],
+  ['P3', 'First 10: red/green alternating', smearCmd(Array.from({length: 10}, (_, i) => i % 2 ? GREEN : RED))],
+  ['P4', 'First 10 red, mode2 = 1', smearCmd(tenRed, {mode2: 1})],
+  ['P5', 'First 10 red, mode = 1', smearCmd(tenRed, {mode: 1})],
+  ['P6', 'First 60 LEDs rainbow', smearCmd(Array.from({length: 60}, (_, i) => [i * 6, 1, 1]))],
+];
+buildTests(PAINT_TESTS, $('#paintTests'), 'Paint');
 
 // start
 pickColour(colour, false);
