@@ -280,14 +280,15 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
       <div class="label" style="margin-top:16px">Halloween scenes</div>
       <div class="scenes" id="scenes"></div>
       <div class="stage"><div class="rod"></div><div class="curtain" id="curtain"></div></div>
-      <div class="locinfo" id="locInfo">Each row lights all the way across the curtain. Tap or drag to paint rows.</div>
+      <div class="locinfo" id="locInfo">Each row lights all the way across the curtain. Only the visible rows are shown; tap or drag to paint them.</div>
       <label class="row" style="margin-top:6px;font-size:13.5px;color:var(--muted);gap:8px"><input type="checkbox" id="live" checked style="accent-color:var(--accent);width:18px;height:18px"> Update the curtain as I paint</label>
       <details class="sub">
         <summary>Rows</summary>
         <div class="fields">
           <div class="field"><label for="rowCount">Rows on your curtain</label><input type="number" id="rowCount" min="1" max="33" value="30"></div>
+          <div class="field"><label for="visRows">Visible rows (from the top)</label><input type="number" id="visRows" min="1" max="33" value="20"></div>
         </div>
-        <p class="hint">Your curtain has 30 rows of 10 LEDs. All 10 LEDs in a row share one colour, because the strands are wired together.</p>
+        <p class="hint">Your curtain has 30 rows of 10 LEDs. All 10 LEDs in a row share one colour, because the strands are wired together. Rows below the visible ones are always sent as off.</p>
       </details>
     </section>
 
@@ -804,6 +805,7 @@ renderFx();
 // =====================================================================
 const STRANDS = 10;
 let rowCount = clamp(store.get('rowCount', 30), 1, 33);
+let visRows = clamp(store.get('visRows', 20), 1, rowCount);
 let rows = store.get('rows', null);
 if(!Array.isArray(rows) || rows.length !== rowCount) rows = new Array(rowCount).fill(null);
 let tool = 'paint', brush = store.get('brush', '#ff7a3d'), painting = false, last = null;
@@ -811,11 +813,11 @@ let tool = 'paint', brush = store.get('brush', '#ff7a3d'), painting = false, las
 function buildCurtain(){
   const el = $('#curtain'); el.innerHTML = '';
   const avail = Math.min(($('.stage').clientWidth || 340) - 20, 480);
-  const cs = clamp(Math.min(Math.floor(avail / STRANDS) - 3, Math.floor(560 / rowCount) - 3), 7, 22);
+  const cs = clamp(Math.min(Math.floor(avail / STRANDS) - 3, Math.floor(560 / visRows) - 3), 7, 22);
   el.style.setProperty('--cs', cs + 'px');
   el.style.gridTemplateColumns = `repeat(${STRANDS}, var(--cs))`;
   const frag = document.createDocumentFragment();
-  for(let r = 0; r < rowCount; r++) for(let c = 0; c < STRANDS; c++){
+  for(let r = 0; r < visRows; r++) for(let c = 0; c < STRANDS; c++){
     const d = document.createElement('div'); d.className = 'cell'; d.dataset.r = r; frag.appendChild(d);
   }
   el.appendChild(frag); renderPaint();
@@ -824,7 +826,7 @@ function paintRowCells(r){
   const v = rows[r];
   document.querySelectorAll(`.cell[data-r="${r}"]`).forEach(d => { d.classList.toggle('lit', !!v); d.style.setProperty('--c', v || 'transparent'); });
 }
-function renderPaint(){ for(let r = 0; r < rowCount; r++) paintRowCells(r); }
+function renderPaint(){ for(let r = 0; r < visRows; r++) paintRowCells(r); }
 function saveRows(){ store.set('rows', rows); }
 function applyAt(el){
   if(!el || !el.dataset || el.dataset.r === undefined) return false;
@@ -832,7 +834,9 @@ function applyAt(el){
   if(rows[r] === v) return false;
   rows[r] = v; paintRowCells(r); return true;
 }
-const rowPoints = () => rows.map(hex => hex ? ledHsv(hex) : [0, 0, 0]);
+const rowPoints = () => rows.map((hex, i) => hex && i < visRows ? ledHsv(hex) : [0, 0, 0]);
+// Fill the visible rows from a function of position f (0 = top, 1 = lowest visible row); hidden rows go off.
+function fillVisible(fn){ rows = rows.map((_, i) => i < visRows ? fn(visRows > 1 ? i / (visRows - 1) : 0, i) : null); }
 async function sendPaint(quiet){
   if(!isConnected()){ if(!quiet) toast('Connect to the curtain first', true); return; }
   stopFx();
@@ -865,7 +869,7 @@ document.querySelectorAll('#toolSeg button').forEach(b => b.onclick = () => {
 });
 $('#brush').value = brush;
 $('#brush').addEventListener('input', e => { brush = e.target.value; store.set('brush', brush); });
-$('#fillBtn').onclick = () => { rows = rows.map(() => brush); renderPaint(); changed(); };
+$('#fillBtn').onclick = () => { fillVisible(() => brush); renderPaint(); changed(); };
 $('#clearBtn').onclick = () => { rows = rows.map(() => null); renderPaint(); changed(); };
 function mixHex(a, b, f){
   const A = hexToRgb(a), B = hexToRgb(b);
@@ -876,10 +880,10 @@ $('#gradBottom').value = store.get('gradBottom', '#2a7cff');
 $('#gradBtn').onclick = () => {
   const a = $('#gradTop').value, b = $('#gradBottom').value;
   store.set('gradTop', a); store.set('gradBottom', b);
-  rows = rows.map((_, i) => mixHex(a, b, rowCount > 1 ? i / (rowCount - 1) : 0));
+  fillVisible(f => mixHex(a, b, f));
   renderPaint(); changed();
 };
-$('#rainbowBtn').onclick = () => { rows = rows.map((_, i) => hsvToHex(i * 330 / Math.max(1, rowCount - 1), 1, 1)); renderPaint(); changed(); };
+$('#rainbowBtn').onclick = () => { fillVisible(f => hsvToHex(f * 330, 1, 1)); renderPaint(); changed(); };
 $('#sendPaint').onclick = () => sendPaint(false);
 
 // Halloween scenes: f runs 0 (top row) to 1 (bottom row); null = row off.
@@ -905,7 +909,7 @@ for(const [id, sc] of Object.entries(SCENES)){
   b.children[0].style.setProperty('--g', `linear-gradient(180deg,${prev.map((c, i) => `${c} ${i * 100 / 12}% ${(i + 1) * 100 / 12}%`).join(',')})`);
   b.children[1].textContent = sc.name;
   b.onclick = () => {
-    rows = rows.map((_, i) => sc.fn(rowCount > 1 ? i / (rowCount - 1) : 0, i));
+    fillVisible(sc.fn);
     renderPaint(); saveRows();
     if(isConnected()) sendPaint(false); else toast('Connect to the curtain to send it');
   };
@@ -914,7 +918,14 @@ for(const [id, sc] of Object.entries(SCENES)){
 $('#rowCount').value = rowCount;
 $('#rowCount').addEventListener('change', e => {
   rowCount = clamp(+e.target.value || 30, 1, 33); e.target.value = rowCount; store.set('rowCount', rowCount);
-  rows = Array.from({length: rowCount}, (_, i) => rows[i] ?? null); saveRows(); buildCurtain();
+  rows = Array.from({length: rowCount}, (_, i) => rows[i] ?? null); saveRows();
+  visRows = Math.min(visRows, rowCount); $('#visRows').value = visRows; store.set('visRows', visRows);
+  buildCurtain();
+});
+$('#visRows').value = visRows;
+$('#visRows').addEventListener('change', e => {
+  visRows = clamp(+e.target.value || 20, 1, rowCount); e.target.value = visRows; store.set('visRows', visRows);
+  buildCurtain(); changed();
 });
 window.addEventListener('resize', throttle(() => { if(!$('[data-view="paint"]').hidden) buildCurtain(); }, 250));
 
