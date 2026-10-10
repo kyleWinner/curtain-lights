@@ -217,7 +217,7 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
         <button class="btn ghost sm" id="whiteBtn">White</button>
         <button class="btn ghost sm" id="warmBtn">Warm white</button>
       </div>
-      <p class="hint">The curtain stores colour as 120 hues, 16 saturation steps and 32 brightness levels, shown above as what gets sent.</p>
+      <p class="hint">The curtain takes colour as 180 hues (2° steps) with saturation and level from 0 to 100, shown above as what gets sent.</p>
     </section>
 
     <!-- effects -->
@@ -238,7 +238,7 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
         <div class="lbl"><span>Brightness</span><span id="efBrightOut">80</span></div>
         <input type="range" id="efBright" min="1" max="100" value="80" aria-label="Effect brightness">
       </div>
-      <p class="hint">The effects don't have names yet. Tap through them and save the ones you like; saved ones get a yellow dot.</p>
+      <p class="hint">Effects don't work on your curtain model yet: it uses a different effect command, which we're still working out. Colour, brightness and on/off work.</p>
     </section>
 
     <!-- painter -->
@@ -335,6 +335,16 @@ function rgbToHsv(r, g, b){
   return [h, max ? d / max : 0, max];
 }
 function encHex(hex, bright = 1){ const [h, s, v] = rgbToHsv(...hexToRgb(hex)); return encHsv(h, s, v * bright); }
+// Your curtain's colour command (confirmed by command-finder test B):
+// e0 01 00 a1 <hue/2> <sat 0-100> <level 0-100> 00 00 00 00 14 00 00
+function hsvLevels(h, s, v){
+  return { hue: Math.round((((h % 360) + 360) % 360) / 2) % 180, sat: clamp(Math.round(s * 100), 0, 100), val: clamp(Math.round(v * 100), 0, 100) };
+}
+function colourCmd(h, s, v){
+  const p = hsvLevels(h, s, v);
+  return [0xe0, 0x01, 0x00, 0xa1, p.hue, p.sat, p.val, 0x00, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00];
+}
+function colourCmdHex(hex, bright = 1){ const [h, s, v] = rgbToHsv(...hexToRgb(hex)); return colourCmd(h, s, v * bright); }
 
 const CMD = {
   power: on => [0x71, on ? 0x23 : 0x24],
@@ -508,15 +518,15 @@ let colour = store.get('colour', '#ff7a3d'), bright = store.get('bright', 100), 
 
 function updateReadout(){
   if(whiteMode){
-    const p = hsvParts(0, 0, bright / 100);
+    const p = hsvLevels(0, 0, bright / 100);
     $('#hexOut').textContent = 'WHITE'; $('#encOut').textContent = `sat 0 · level ${p.val}`;
     return;
   }
-  const [h, s, v] = rgbToHsv(...hexToRgb(colour)), p = hsvParts(h, s, v * bright / 100);
+  const [h, s, v] = rgbToHsv(...hexToRgb(colour)), p = hsvLevels(h, s, v * bright / 100);
   $('#hexOut').textContent = colour.toUpperCase();
   $('#encOut').textContent = `hue ${p.hue} · sat ${p.sat} · level ${p.val}`;
 }
-const pushColour = throttle(() => send(whiteMode ? CMD.colour(encHsv(0, 0, bright / 100)) : CMD.colour(encHex(colour, bright / 100)), true), 160);
+const pushColour = throttle(() => send(whiteMode ? colourCmd(0, 0, bright / 100) : colourCmdHex(colour, bright / 100), true), 160);
 function pickColour(hex, doSend){
   colour = hex.toLowerCase(); whiteMode = false; store.set('colour', colour);
   $('#colour').value = colour; setAccent(colour); updateReadout();
@@ -537,7 +547,7 @@ $('#bright').addEventListener('input', e => {
 $('#whiteBtn').onclick = () => {
   whiteMode = true; setAccent('#e9ecff'); updateReadout();
   document.querySelectorAll('.sw').forEach(s => s.classList.remove('sel'));
-  send(CMD.colour(encHsv(0, 0, bright / 100)));
+  send(colourCmd(0, 0, bright / 100));
 };
 $('#warmBtn').onclick = () => pickColour('#ffaa50', true);
 document.querySelectorAll('#powerSeg button').forEach(b => b.onclick = async () => {
@@ -702,12 +712,13 @@ $('#copyLog').onclick = async () => {
 // =====================================================================
 const withSum = arr => [...arr, arr.reduce((a, b) => a + b, 0) & 255];
 const COLOUR_TESTS = [
-  ['A', 'HSV, 16-bit (current)', [0xe2, 0x0b, 0x01, 0xff]],
-  ['B', 'HSV, 25-byte mode A1', [0xe0, 0x01, 0x00, 0xa1, 0x00, 0x64, 0x64, 0x00, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00]],
+  ['A', 'HSV, 16-bit (old)', [0xe2, 0x0b, 0x01, 0xff]],
+  ['B', 'HSV, 25-byte A1 (in use)', [0xe0, 0x01, 0x00, 0xa1, 0x00, 0x64, 0x64, 0x00, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00]],
   ['C', 'HSV, 25-byte mode 00', [0xe0, 0x01, 0x00, 0x00, 0x00, 0x64, 0x64, 0x00, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00]],
   ['D', 'RGB, classic 0x31', withSum([0x31, 0xff, 0x00, 0x00, 0x00, 0xf0, 0x0f])],
   ['E', 'RGB, 0x31 no white', withSum([0x31, 0xff, 0x00, 0x00, 0xf0, 0x0f])],
   ['F', 'HSV, 0x3B A1', withSum([0x3b, 0xa1, 0x00, 0x64, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])],
+  ['F2', 'HSV, 0x3B A1 2-byte hue', withSum([0x3b, 0xa1, 0x00, 0x00, 0x64, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])],
   ['G', 'RGB, addressable 0x41', withSum([0x41, 0x01, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])],
   ['H', 'RGB, 0x56 strip', [0x56, 0xff, 0x00, 0x00, 0x00, 0xf0, 0xaa]],
 ];
@@ -718,6 +729,10 @@ const EFFECT_TESTS = [
   ['4', 'Addressable 0x61 (+99)', withSum([0x61, 0x00, 0x68, 0x10, 0x0f])],
   ['5', 'Symphony 0x38', withSum([0x38, 0x05, 0x50, 0x64])],
   ['6', '0x3B pattern', withSum([0x3b, 0x25, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])],
+  ['7', '0x3B pattern 5, speed then bright', withSum([0x3b, 0x25, 0x00, 0x05, 0x50, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])],
+  ['8', '0x3B pattern 5, bright then speed', withSum([0x3b, 0x25, 0x00, 0x05, 0x64, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])],
+  ['9', '0x3B pattern 1, speed then bright', withSum([0x3b, 0x25, 0x00, 0x01, 0x50, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])],
+  ['10', '0x3B pattern 12, both full', withSum([0x3b, 0x25, 0x00, 0x0c, 0x64, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])],
 ];
 function buildTests(list, el, kind){
   for(const [id, label, bytes] of list){
