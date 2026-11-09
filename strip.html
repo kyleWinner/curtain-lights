@@ -530,7 +530,8 @@ async function connect(showAll){
   if(!navigator.bluetooth){ showBlocked('nobt'); return; }
   const opts = showAll
     ? {acceptAllDevices: true, optionalServices: [SVC]}
-    : {filters: [{namePrefix: 'Govee_'}, {namePrefix: 'ihoment_'}, {namePrefix: 'GBK_'}, {services: [SVC]}], optionalServices: [SVC]};
+    // Only H617-family strips, so other Govee lights nearby don't crowd the list.
+    : {filters: [{namePrefix: 'Govee_H617'}, {namePrefix: 'ihoment_H617'}, {namePrefix: 'GBK_H617'}], optionalServices: [SVC]};
   try{
     device = await navigator.bluetooth.requestDevice(opts);
   }catch(e){
