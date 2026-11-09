@@ -1,0 +1,1114 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Strip Lights</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+/* Layout: phone-first single column (max 560px), sticky status bar on top,
+   tab bar fixed to the bottom for one-handed use. Deliberately dark-only:
+   it's a remote for lights you use after dark, and the accent follows the
+   colour currently on the curtain. */
+:root{
+  color-scheme: dark;
+  --bg:#0b0d12; --surface:#141822; --surface2:#1c2130; --line:#283043;
+  --fg:#eceef4; --muted:#8e96aa; --faint:#566078;
+  --accent:#ff7a3d; --on-accent:#14100c;
+  --ok:#4ade80; --err:#ff6b81;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+  --r:18px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);margin:0}
+body{
+  color:var(--fg); font-family:var(--body); font-size:15px; line-height:1.45;
+  min-height:100%;
+  background:
+    radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 60%),
+    var(--bg);
+  background-attachment:fixed;
+  transition:background .5s;
+}
+button,input,select{font:inherit;color:inherit}
+button{-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:0 120px}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;margin-inline:-16px;padding:14px 16px 12px;
+  background:color-mix(in srgb, var(--bg) 82%, transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.mark{width:34px;height:34px;flex:none;border-radius:10px;background:var(--surface);border:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:6px}
+.mark i{border-radius:50%;background:var(--accent);box-shadow:0 0 5px var(--accent)}
+.mark i:nth-child(3n){opacity:.4}
+h1{font-family:var(--display);font-size:20px;font-weight:700;margin:0;letter-spacing:-.02em;line-height:1.1}
+.spec{color:var(--muted);font-size:12px;margin-top:1px;font-variant-numeric:tabular-nums}
+.chip{display:flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;background:var(--surface);
+  border:1px solid var(--line);font-size:12.5px;color:var(--muted);white-space:nowrap;cursor:default}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.chip.on{color:var(--fg)}
+.chip.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.chip.busy .dot{background:#ffcf5a;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+
+/* panels */
+.stack{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+.panel{background:color-mix(in srgb, var(--surface) 90%, transparent);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+h2{font-family:var(--display);font-size:17px;font-weight:600;margin:0;letter-spacing:-.01em}
+.label{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.hint{color:var(--muted);font-size:13px;margin:10px 0 0;line-height:1.5}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+.btn{border:0;border-radius:12px;padding:12px 18px;background:var(--accent);color:var(--on-accent);font-weight:600;cursor:pointer;
+  transition:transform .08s, filter .15s, background .4s}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.55}
+.btn.wide{width:100%;padding:15px 18px;font-size:16px}
+.btn.ghost{background:var(--surface2);color:var(--fg);border:1px solid var(--line);font-weight:500}
+.btn.sm{padding:8px 13px;font-size:13.5px;border-radius:10px}
+.link{background:none;border:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px 0;font-size:13.5px}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg button{border:0;background:transparent;padding:7px 14px;border-radius:9px;cursor:pointer;color:var(--muted);font-weight:500}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+
+/* connect */
+.connect{display:flex;flex-direction:column;gap:6px}
+.steps{margin:14px 0 4px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.steps li{display:flex;gap:10px;font-size:14px;color:var(--muted)}
+.steps b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1px solid var(--line);
+  display:grid;place-items:center;font-size:12px;color:var(--fg)}
+.notice{border-radius:12px;padding:12px 14px;background:color-mix(in srgb, var(--err) 12%, var(--surface2));
+  border:1px solid color-mix(in srgb, var(--err) 40%, var(--line));font-size:13.5px;line-height:1.5}
+.notice b{color:var(--fg)}
+.conn-on{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.conn-on .name{font-weight:600}
+.conn-on .sub{font-size:12.5px;color:var(--muted)}
+
+/* colour */
+.colourTop{display:flex;gap:16px;align-items:center;margin-top:16px}
+.orb{position:relative;width:92px;height:92px;flex:none;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 0 5px var(--surface2), 0 0 40px color-mix(in srgb, var(--accent) 65%, transparent);cursor:pointer;transition:background .3s, box-shadow .3s}
+.orb input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.swatches{flex:1;min-width:0;display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+.sw{aspect-ratio:1;max-width:100%;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.sw.sel{border-color:var(--fg)}
+.readout{margin-top:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.slider{margin-top:16px}
+.slider .lbl{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent);height:28px}
+
+/* effects */
+.stepper{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:3px}
+.stepper button{border:0;background:transparent;width:38px;height:34px;border-radius:9px;cursor:pointer;font-size:20px;line-height:1}
+.stepper span{min-width:40px;text-align:center;font-family:var(--display);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.effects{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:16px}
+.ef{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:10px 0;cursor:pointer;
+  font-variant-numeric:tabular-nums;color:var(--muted);position:relative;font-size:14px}
+.ef.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.ef.fav::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:#ffd34d}
+
+/* painter */
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.brush{width:40px;height:36px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);padding:3px;cursor:pointer}
+.stage{margin-top:14px;padding:16px 8px 20px;border-radius:14px;background:#05060a;border:1px solid var(--line);
+  overflow-x:auto;display:flex;justify-content:center;position:relative}
+.rod{position:absolute;left:10px;right:10px;top:8px;height:4px;border-radius:2px;background:#2b3142}
+.curtain{display:grid;gap:3px;touch-action:none;user-select:none;-webkit-user-select:none;margin-top:4px}
+.cell{width:var(--cs);height:var(--cs);border-radius:50%;background:#181c27;transition:background .12s, box-shadow .12s}
+.cell.lit{background:var(--c);box-shadow:0 0 calc(var(--cs) * .9) var(--c)}
+.cell.loc{outline:2px solid var(--fg);outline-offset:2px}
+.locinfo{font-size:13px;color:var(--muted);margin-top:10px;min-height:1.4em;font-variant-numeric:tabular-nums}
+details.sub{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.field input,.field select,.rawin{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+
+/* more */
+.log{margin-top:12px;height:220px;overflow:auto;background:#05060a;border:1px solid var(--line);border-radius:12px;
+  padding:8px 10px;font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.log div{white-space:pre-wrap;word-break:break-all}
+.log .t{color:var(--faint);margin-right:7px}
+.log .tx{color:#86b6ff}.log .rx{color:#7ee2a8}.log .err{color:var(--err)}.log .info{color:var(--muted)}
+
+.fxgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+.fx{display:flex;flex-direction:column;align-items:stretch;gap:7px;text-align:left;border:1px solid var(--line);
+  background:var(--surface2);border-radius:14px;padding:11px;cursor:pointer;min-width:0}
+.fxgroup{grid-column:1/-1;margin-top:6px}
+.fxgroup:first-child{margin-top:0}
+.scenes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.scene{border:1px solid var(--line);background:var(--surface2);border-radius:12px;padding:8px;cursor:pointer;
+  display:flex;flex-direction:column;gap:6px;align-items:stretch;min-width:0;font-size:12.5px;text-align:left}
+.scene i{display:block;height:40px;border-radius:7px;background:var(--g)}
+.fx i{display:block;height:30px;border-radius:9px;background:var(--g);background-size:200% 100%}
+.fx b{font-weight:600;font-size:14.5px}
+.fx span{font-size:12px;color:var(--muted);line-height:1.35}
+.fx.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.fx.on i{animation:fxpan 2.4s linear infinite}
+@keyframes fxpan{to{background-position:200% 0}}
+.tests{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+.test{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--line);background:var(--surface2);
+  border-radius:12px;padding:10px 12px;cursor:pointer;min-width:0}
+.test b{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--bg);
+  font-family:var(--display);font-size:15px}
+.test span{font-size:12.5px;color:var(--muted);line-height:1.3;min-width:0}
+.test.tried{border-color:color-mix(in srgb, var(--accent) 60%, var(--line))}
+
+/* tab bar */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));
+  background:color-mix(in srgb, var(--surface) 88%, transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line)}
+.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tab{border:0;background:transparent;border-radius:12px;padding:8px 4px;cursor:pointer;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:500}
+.tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab.on{color:var(--fg);background:var(--surface2)}
+.tab.on svg{stroke:var(--accent)}
+
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;
+  pointer-events:none;z-index:9;background:#262c3c;border:1px solid var(--line);padding:10px 16px;border-radius:12px;
+  font-size:14px;transition:all .22s;max-width:calc(100vw - 32px);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.err{border-color:var(--err)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+/* ---- strip page ---- */
+.devswitch{display:flex;width:100%}
+.devswitch a{flex:1;text-align:center;text-decoration:none;padding:8px 14px;border-radius:9px;color:var(--muted);font-weight:500}
+.devswitch a.on{background:var(--accent);color:var(--on-accent)}
+.mark.strip{grid-template-columns:repeat(5,1fr);align-content:center;gap:3px;padding:6px 5px}
+.mark.strip i{aspect-ratio:1}
+.tape{position:relative;display:grid;gap:4px;padding:12px 10px;border-radius:12px;background:#d9dbe2;touch-action:none;
+  user-select:none;-webkit-user-select:none;width:100%}
+.seg-cell{height:44px;border-radius:7px;background:#181c27;display:grid;place-items:center;font-size:10.5px;color:#5d6578;
+  font-variant-numeric:tabular-nums;transition:background .12s, box-shadow .12s, color .12s}
+.seg-cell.lit{background:var(--c);box-shadow:0 0 14px var(--c);color:color-mix(in srgb, var(--c) 30%, #000)}
+.tapewrap{margin-top:14px;padding:16px 10px;border-radius:14px;background:#05060a;border:1px solid var(--line)}
+.builtin{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.builtin button{border:1px solid var(--line);background:var(--surface2);border-radius:12px;padding:11px 6px;cursor:pointer;font-size:13.5px}
+.builtin button.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.settings{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.settings .field select{appearance:auto}
+.check{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+.check input{accent-color:var(--accent);width:18px;height:18px}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark strip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <div style="min-width:0">
+        <h1>Strip Lights</h1>
+        <div class="spec">Govee H617C · 10 m RGBIC</div>
+      </div>
+    </div>
+    <div class="chip" id="chip"><span class="dot"></span><span id="chipText">Not connected</span></div>
+  </header>
+
+  <div class="stack">
+    <nav class="seg devswitch" aria-label="Device"><a href="./">Curtain</a><a href="strip.html" class="on" aria-current="page">Strip</a></nav>
+
+    <!-- connection -->
+    <section class="panel" id="connectPanel">
+      <div class="connect" id="connectOff">
+        <h2>Connect to your strip</h2>
+        <ol class="steps">
+          <li><b>1</b><span>Plug the strip in and switch it on at its control box.</span></li>
+          <li><b>2</b><span>Close the Govee Home app so it lets go of the strip.</span></li>
+          <li><b>3</b><span>Tap Connect and pick the one named Govee_H617C.</span></li>
+        </ol>
+        <div id="blocked" hidden></div>
+        <button class="btn wide" id="connectBtn">Connect</button>
+        <button class="link" id="connectAllBtn">Not in the list? Show every nearby device</button>
+      </div>
+      <div class="conn-on" id="connectOn" hidden>
+        <div style="min-width:0"><div class="name" id="devName">Strip</div><div class="sub" id="devSub">Connected over Bluetooth</div></div>
+        <div class="row">
+          <button class="btn sm" id="reconnectBtn" hidden>Reconnect</button>
+          <button class="btn ghost sm" id="disconnectBtn">Disconnect</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- colour -->
+    <section class="panel" data-view="colour">
+      <div class="head">
+        <h2>Colour</h2>
+        <div class="seg" id="powerSeg"><button data-power="1">On</button><button data-power="0">Off</button></div>
+      </div>
+      <div class="colourTop">
+        <label class="orb" title="Pick any colour"><input type="color" id="colour" value="#2a7cff" aria-label="Pick a colour"></label>
+        <div class="swatches" id="swatches"></div>
+      </div>
+      <div class="readout"><span id="hexOut">#2A7CFF</span><span id="encOut">sent as R 0 · G 52 · B 255</span></div>
+      <div class="slider">
+        <div class="lbl"><span>Brightness</span><span id="brightOut">100%</span></div>
+        <input type="range" id="bright" min="1" max="100" value="100" aria-label="Brightness">
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn ghost sm" id="whiteBtn">White</button>
+        <button class="btn ghost sm" id="warmBtn">Warm white</button>
+      </div>
+      <p class="hint">This colours the whole strip. The Painter tab lets you give each segment its own colour.</p>
+    </section>
+
+    <!-- effects -->
+    <section class="panel" data-view="effects" hidden>
+      <div class="head">
+        <h2>Effects</h2>
+        <button class="btn sm" id="fxStop" hidden>Stop effect</button>
+      </div>
+      <div class="fxgrid" id="fxGrid"></div>
+      <div class="slider">
+        <div class="lbl"><span>Speed</span><span id="efSpeedOut">50</span></div>
+        <input type="range" id="efSpeed" min="1" max="100" value="50" aria-label="Effect speed">
+      </div>
+      <div class="slider" style="margin-top:4px">
+        <div class="lbl"><span>Brightness</span><span id="efBrightOut">100%</span></div>
+        <input type="range" id="efBright" min="5" max="100" value="100" aria-label="Effect brightness">
+      </div>
+      <div class="slider" id="sensRow" hidden style="margin-top:4px">
+        <div class="lbl"><span>Mic sensitivity</span><span id="sensOut">50</span></div>
+        <input type="range" id="sens" min="1" max="100" value="50" aria-label="Microphone sensitivity">
+      </div>
+      <p class="hint">These run from this page, so keep it open while one plays; the screen stays awake. Moving effects send one command per segment, so they step a little more slowly than whole-strip ones. Breathe, Strobe and Comet use the colour picked on the Colour tab.</p>
+    </section>
+
+    <section class="panel" data-view="effects" hidden>
+      <h2>Built into the strip</h2>
+      <p class="hint" style="margin-top:6px">These run on the strip itself, so they keep going after you close this page. They come from notes on the H617A, so if one does nothing, tell Claude.</p>
+      <div class="builtin" id="builtin"></div>
+    </section>
+
+    <!-- painter -->
+    <section class="panel" data-view="paint" hidden>
+      <div class="head">
+        <h2>Painter</h2>
+        <button class="btn sm" id="sendPaint">Send to strip</button>
+      </div>
+      <div class="tools">
+        <div class="seg" id="toolSeg"><button data-tool="paint" class="on">Paint</button><button data-tool="erase">Off</button></div>
+        <input type="color" class="brush" id="brush" value="#2a7cff" aria-label="Brush colour">
+        <button class="btn ghost sm" id="fillBtn">Fill</button>
+        <button class="btn ghost sm" id="clearBtn">Clear</button>
+      </div>
+      <div class="tools">
+        <span class="label" style="margin-right:2px">Gradient</span>
+        <input type="color" class="brush" id="gradA" value="#ff2a2a" aria-label="Start colour">
+        <span aria-hidden="true" style="color:var(--muted)">→</span>
+        <input type="color" class="brush" id="gradB" value="#2a7cff" aria-label="End colour">
+        <button class="btn ghost sm" id="gradBtn">Apply</button>
+        <button class="btn ghost sm" id="rainbowBtn">Rainbow</button>
+      </div>
+      <div class="label" style="margin-top:16px">Scenes</div>
+      <div class="scenes" id="scenes"></div>
+      <div class="tapewrap"><div class="tape" id="tape"></div></div>
+      <div class="locinfo">Segment 1 is the end nearest the control box. Tap or drag to paint.</div>
+      <label class="check" style="margin-top:6px"><input type="checkbox" id="live" checked> Update the strip as I paint</label>
+      <details class="sub">
+        <summary>Segments</summary>
+        <div class="fields">
+          <div class="field"><label for="segCount">Segments on your strip</label><input type="number" id="segCount" min="1" max="30" value="15"></div>
+          <div class="field" style="display:flex;align-items:flex-end"><button class="btn ghost sm" id="numberBtn" style="width:100%">Show segments</button></div>
+        </div>
+        <p class="hint">The strip is split into blocks of LEDs that each take one colour. "Show segments" lights them alternately red and blue, with segment 1 white, so you can count them. If your count differs, change the number above.</p>
+      </details>
+    </section>
+
+    <!-- advanced -->
+    <section class="panel" data-view="more" hidden>
+      <h2>Command finder</h2>
+      <p class="hint" style="margin-top:6px">The H617C is close to the H617A, but some commands may differ. Tap each test and watch the strip, then tell Claude which ones worked.</p>
+      <div class="label" style="margin-top:14px">Colour tests: each tries to turn the strip red</div>
+      <div class="tests" id="colourTests"></div>
+      <div class="label" style="margin-top:16px">Brightness tests: each tries to set half brightness</div>
+      <div class="tests" id="brightTests"></div>
+    </section>
+
+    <section class="panel" data-view="more" hidden>
+      <h2>Settings</h2>
+      <div class="settings">
+        <div class="field"><label for="colourMethod">Colour command</label><select id="colourMethod"></select></div>
+        <div class="field"><label for="brightScale">Brightness scale</label>
+          <select id="brightScale"><option value="100">1–100 (H617A)</option><option value="255">1–255</option></select></div>
+        <label class="check"><input type="checkbox" id="gamma" checked> Colour correction (keeps reds from looking pink)</label>
+      </div>
+    </section>
+
+    <section class="panel" data-view="more" hidden>
+      <h2>Advanced</h2>
+      <div class="row" style="margin-top:14px">
+        <button class="btn ghost sm" id="statusBtn">Request status</button>
+        <button class="btn ghost sm" id="segQueryBtn">Ask segment count</button>
+      </div>
+      <div class="row" style="margin-top:10px;flex-wrap:nowrap">
+        <input class="rawin" id="raw" placeholder="Raw command in hex, e.g. 330101" aria-label="Raw command">
+        <button class="btn sm" id="rawBtn">Send</button>
+      </div>
+      <p class="hint" style="margin-top:6px">Padding to 20 bytes and the checksum are added for you.</p>
+      <div class="label" style="margin-top:16px">Bluetooth log</div>
+      <div class="log" id="log"></div>
+      <p class="hint">&gt;&gt; is sent to the strip, &lt;&lt; is its reply. Keep-alive pings every 2 seconds are hidden. If something misbehaves, copy this log into the chat.</p>
+      <button class="btn ghost sm" id="copyLog" style="margin-top:6px">Copy log</button>
+    </section>
+  </div>
+</div>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="in">
+    <button class="tab on" data-tab="colour"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Colour</button>
+    <button class="tab" data-tab="effects"><svg viewBox="0 0 24 24"><path d="M4 12c2.5-6 5.5-6 8 0s5.5 6 8 0"/></svg>Effects</button>
+    <button class="tab" data-tab="paint"><svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="2"/><path d="M8 9v6M13 9v6M18 9v6"/></svg>Painter</button>
+    <button class="tab" data-tab="more"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"/></svg>Advanced</button>
+  </div>
+</nav>
+<div id="toast" role="status"></div>
+
+<script>
+// =====================================================================
+// Protocol (Govee H617-family Bluetooth strips). Sources:
+//   notes.generalzero.org  (H617A GATT layout, command list, segment mask)
+//   community.home-assistant.io/t/901353  (XOR checksum, 2 s keep-alive,
+//   segment colour command 33 05 15 01 ... FF 7F)
+// Every command is 20 bytes: payload, zero padding, XOR of bytes 0-18.
+// =====================================================================
+const SVC = '00010203-0405-0607-0809-0a0b0c0d1910';
+const WRITE = '00010203-0405-0607-0809-0a0b0c0d2b11';
+const NOTIFY = '00010203-0405-0607-0809-0a0b0c0d2b10';
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+function packet(bytes){
+  const p = new Uint8Array(20);
+  p.set(bytes.slice(0, 19));
+  let x = 0; for(let i = 0; i < 19; i++) x ^= p[i];
+  p[19] = x;
+  return p;
+}
+// Segment i (0-based, from the control box end) is bit i, little-endian.
+function maskBytes(idxs){
+  const m = new Array(Math.max(2, Math.ceil(segCount / 8))).fill(0);
+  for(const i of idxs) if(i >= 0 && i < m.length * 8) m[i >> 3] |= 1 << (i & 7);
+  return m;
+}
+const allSegs = () => Array.from({length: segCount}, (_, i) => i);
+
+const COLOUR_METHODS = {
+  seg:   {label: 'Segment 33 05 15 01 (H617A)', segs: true,  fn: (c, m) => [0x33, 0x05, 0x15, 0x01, ...c, 0, 0, 0, 0, 0, ...m]},
+  seg0b: {label: 'Segment 33 05 0B (H6199)',    segs: true,  fn: (c, m) => [0x33, 0x05, 0x0b, ...c, 0, 0, ...m]},
+  rgb02: {label: 'Whole strip 33 05 02',        segs: false, fn: c => [0x33, 0x05, 0x02, ...c]},
+  rgb0d: {label: 'Whole strip 33 05 0D',        segs: false, fn: c => [0x33, 0x05, 0x0d, ...c]},
+};
+const CMD = {
+  power: on => [0x33, 0x01, on ? 0x01 : 0x00],
+  bright: pct => brightScale === '255' ? [0x33, 0x04, clamp(Math.round(pct * 2.55), 1, 255)] : [0x33, 0x04, clamp(Math.round(pct), 1, 100)],
+  keepAlive: () => [0xaa, 0x01],
+  getBright: () => [0xaa, 0x04],
+  getSegments: () => [0xaa, 0xa5],
+  scene: id => [0x33, 0x05, 0x04, id],
+  micMode: () => [0x33, 0x05, 0x13, 0x06, 0x63],
+};
+const toHex = arr => Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+
+// =====================================================================
+// Colour helpers
+// =====================================================================
+function hexToRgb(hex){ hex = hex.replace('#', ''); return [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16)); }
+function rgbToHsv(r, g, b){
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if(d){
+    if(max === r) h = ((g - b) / d) % 6; else if(max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    h *= 60; if(h < 0) h += 360;
+  }
+  return [h, max ? d / max : 0, max];
+}
+function hsvToRgb(h, s, v){
+  const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+  return [f(5), f(3), f(1)].map(x => x * 255);
+}
+function hsvToHex(h, s, v){ return '#' + hsvToRgb(h, s, v).map(x => Math.round(x).toString(16).padStart(2, '0')).join(''); }
+// Screen colours are gamma-encoded; LEDs are linear. Correcting keeps small
+// amounts of the other channels from washing colours out.
+function ledRgb(rgb){ return rgb.map(c => clamp(Math.round(gamma ? Math.pow(c / 255, 2.2) * 255 : c), 0, 255)); }
+const ledHex = hex => ledRgb(hexToRgb(hex));
+function mixHex(a, b, f){
+  const A = hexToRgb(a), B = hexToRgb(b);
+  return '#' + A.map((x, i) => Math.round(x + (B[i] - x) * f).toString(16).padStart(2, '0')).join('');
+}
+
+// =====================================================================
+// Small helpers
+// =====================================================================
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('strip.' + k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('strip.' + k, JSON.stringify(v)); }catch(e){} },
+};
+function toast(msg, err){
+  const t = $('#toast'); t.textContent = msg; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.className = '', 2800);
+}
+function throttle(fn, ms){
+  let timer = null, pending = null;
+  return (...a) => {
+    pending = a; if(timer) return;
+    fn(...pending); pending = null;
+    timer = setTimeout(function tick(){
+      if(pending){ const p = pending; pending = null; fn(...p); timer = setTimeout(tick, ms); } else timer = null;
+    }, ms);
+  };
+}
+function setAccent(hex){
+  const [r, g, b] = hexToRgb(hex);
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  document.documentElement.style.setProperty('--accent', hex);
+  document.documentElement.style.setProperty('--on-accent', lum > 0.55 ? '#14100c' : '#ffffff');
+}
+function log(kind, text){
+  const box = $('#log'), atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 8;
+  const row = document.createElement('div');
+  const t = document.createElement('span'); t.className = 't'; t.textContent = new Date().toTimeString().slice(0, 8);
+  const m = document.createElement('span'); m.className = kind;
+  m.textContent = (kind === 'tx' ? '>> ' : kind === 'rx' ? '<< ' : '') + text;
+  row.append(t, m); box.appendChild(row);
+  while(box.children.length > 400) box.removeChild(box.firstChild);
+  if(atEnd) box.scrollTop = box.scrollHeight;
+}
+
+// settings
+let segCount = clamp(store.get('segCount', 15), 1, 30);
+let colourMethod = COLOUR_METHODS[store.get('colourMethod', 'seg')] ? store.get('colourMethod', 'seg') : 'seg';
+let brightScale = store.get('brightScale', '100');
+let gamma = store.get('gamma', true);
+
+// =====================================================================
+// Bluetooth
+// =====================================================================
+let device = null, writeChar = null, noResponse = true, queue = Promise.resolve(), keepTimer = null;
+let powerState = null;
+const isConnected = () => !!(device && device.gatt && device.gatt.connected && writeChar);
+
+function setChip(state, text){
+  const c = $('#chip'); c.className = 'chip' + (state === 'on' ? ' on' : state === 'busy' ? ' busy' : '');
+  $('#chipText').textContent = text;
+}
+function renderConnection(){
+  if(isConnected()){
+    $('#connectOff').hidden = true; $('#connectOn').hidden = false; $('#reconnectBtn').hidden = true;
+    $('#devName').textContent = device.name || 'Govee strip';
+    $('#devSub').textContent = 'Connected over Bluetooth';
+    setChip('on', 'Connected');
+  }else if(device && device._wasConnected){
+    $('#connectOff').hidden = true; $('#connectOn').hidden = false; $('#reconnectBtn').hidden = false;
+    $('#devSub').textContent = 'Connection dropped';
+    setChip('off', 'Disconnected');
+  }else{
+    $('#connectOff').hidden = false; $('#connectOn').hidden = true;
+    setChip('off', 'Not connected');
+  }
+}
+function showBlocked(kind, detail){
+  const el = $('#blocked'); el.hidden = false; el.className = 'notice';
+  if(kind === 'nobt'){
+    el.innerHTML = '<b>This browser can\'t use Bluetooth.</b> Open this page in <b>Chrome on Android</b> (or Chrome/Edge on a computer). It won\'t work inside the Claude app or on iPhone.';
+  }else{
+    el.innerHTML = '<b>Bluetooth is blocked on this page.</b> The page it\'s hosted on isn\'t allowed to use Bluetooth. Open the GitHub Pages version instead.';
+  }
+  if(detail) log('err', detail);
+}
+function stopKeepAlive(){ clearInterval(keepTimer); keepTimer = null; }
+
+async function connect(showAll){
+  if(!navigator.bluetooth){ showBlocked('nobt'); return; }
+  const opts = showAll
+    ? {acceptAllDevices: true, optionalServices: [SVC]}
+    : {filters: [{namePrefix: 'Govee_'}, {namePrefix: 'ihoment_'}, {namePrefix: 'GBK_'}, {services: [SVC]}], optionalServices: [SVC]};
+  try{
+    device = await navigator.bluetooth.requestDevice(opts);
+  }catch(e){
+    if(e.name === 'NotFoundError'){ log('info', 'Device list closed without choosing'); return; }
+    if(e.name === 'SecurityError' || /permissions policy|disallowed|not allowed/i.test(e.message)){ showBlocked('frame', e.message); return; }
+    toast(e.message, true); log('err', e.message); return;
+  }
+  device.addEventListener('gattserverdisconnected', () => {
+    writeChar = null; stopKeepAlive(); stopFx(true);
+    log('err', 'Strip disconnected'); renderConnection(); toast('Strip disconnected', true);
+  });
+  await openGatt();
+}
+function onNotify(e){
+  const d = new Uint8Array(e.target.value.buffer);
+  if(d[0] === 0xaa && d[1] === 0x01){
+    const on = d[2] === 1;
+    if(on !== powerState){ powerState = on; renderPower(); log('rx', toHex(d) + (on ? '  (on)' : '  (off)')); }
+    return;
+  }
+  if(d[0] === 0xaa && d[1] === 0x04){
+    const pct = brightScale === '255' ? Math.round(d[2] / 2.55) : d[2];
+    if(pct >= 1 && pct <= 100){ bright = pct; $('#bright').value = pct; $('#brightOut').textContent = pct + '%'; store.set('bright', pct); }
+  }
+  log('rx', toHex(d));
+}
+async function openGatt(){
+  setChip('busy', 'Connecting…');
+  try{
+    const server = await device.gatt.connect();
+    let svc;
+    try{ svc = await server.getPrimaryService(SVC); }
+    catch(e){ device.gatt.disconnect(); throw new Error("That device isn't a Govee strip. Try connecting again and pick a different one."); }
+    writeChar = await svc.getCharacteristic(WRITE);
+    noResponse = !!writeChar.properties.writeWithoutResponse;
+    for(const uuid of [NOTIFY, WRITE]){
+      try{
+        const ch = uuid === WRITE ? writeChar : await svc.getCharacteristic(uuid);
+        if(ch.properties.notify){ await ch.startNotifications(); ch.addEventListener('characteristicvaluechanged', onNotify); }
+      }catch(e){ log('info', 'No replies from ' + uuid.slice(-4) + ': ' + e.message); }
+    }
+    device._wasConnected = true; resetSent(); powerState = null;
+    log('info', 'Connected to ' + (device.name || 'strip'));
+    renderConnection(); toast('Connected');
+    stopKeepAlive();
+    keepTimer = setInterval(() => send(CMD.keepAlive(), true, true), 2000);
+    send(CMD.keepAlive(), true, true); send(CMD.getBright(), true);
+  }catch(e){
+    writeChar = null; renderConnection(); toast(e.message, true); log('err', e.message);
+  }
+}
+function send(bytes, quiet, noLog){
+  if(!isConnected()){ if(!quiet) toast('Connect to the strip first', true); return Promise.resolve(false); }
+  const job = queue.then(async () => {
+    if(!isConnected()) return false;
+    const p = packet(bytes);
+    if(!noLog) log('tx', toHex(p));
+    if(noResponse) await writeChar.writeValueWithoutResponse(p); else await writeChar.writeValueWithResponse(p);
+    return true;
+  }).catch(e => { log('err', e.message); if(!quiet) toast(e.message, true); return false; });
+  queue = job;
+  return job;
+}
+
+// Segment colours as last sent to the strip, so effects and live painting
+// only send the segments that changed. null = unknown, send everything.
+let sent = null, sendGen = 0;
+function resetSent(){ sent = null; }
+async function sendFrame(frame, noLog, gen = sendGen){
+  const m = COLOUR_METHODS[colourMethod];
+  if(!m.segs){
+    // this command can only colour the whole strip: use the first segment's colour
+    const key = frame[0].join(',');
+    if(sent && sent.every(k => k === key)) return true;
+    const ok = await send(m.fn(frame[0]), true, noLog);
+    if(ok) sent = new Array(segCount).fill(key); else sent = null;
+    return ok;
+  }
+  const groups = new Map();
+  frame.forEach((c, i) => {
+    const key = c.join(',');
+    if(sent && sent[i] === key) return;
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(i);
+  });
+  for(const [key, idxs] of groups){
+    if(gen !== sendGen) return false;
+    const ok = await send(m.fn(key.split(',').map(Number), maskBytes(idxs)), true, noLog);
+    if(!ok){ sent = null; return false; }
+    if(!sent) sent = new Array(segCount).fill(null);
+    for(const i of idxs) sent[i] = key;
+  }
+  return true;
+}
+// Explicit user action: cancel anything in flight and send fresh.
+function sendNow(frame){ sendGen++; resetSent(); return sendFrame(frame, false); }
+
+$('#connectBtn').onclick = () => connect(false);
+$('#connectAllBtn').onclick = () => connect(true);
+$('#reconnectBtn').onclick = () => openGatt();
+$('#disconnectBtn').onclick = () => {
+  stopFx(true); stopKeepAlive();
+  if(device){ device._wasConnected = false; try{ device.gatt.disconnect(); }catch(e){} }
+  device = null; writeChar = null; renderConnection(); log('info', 'Disconnected');
+};
+if(!navigator.bluetooth) showBlocked('nobt');
+
+// =====================================================================
+// Tabs
+// =====================================================================
+function showTab(name){
+  document.querySelectorAll('[data-view]').forEach(p => p.hidden = p.dataset.view !== name);
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
+  store.set('tab', name);
+}
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => { showTab(t.dataset.tab); window.scrollTo({top: 0}); });
+
+// =====================================================================
+// Colour
+// =====================================================================
+const SWATCHES = ['#ff2a2a','#ff6a00','#ffb300','#ffe500','#9dff00','#22ff66','#00e5ff','#2a7cff','#7a2aff','#ff2ad4'];
+let colour = store.get('colour', '#2a7cff'), bright = store.get('bright', 100);
+const full = rgb => Array.from({length: segCount}, () => rgb);
+
+function updateReadout(){
+  const [r, g, b] = ledHex(colour);
+  $('#hexOut').textContent = colour.toUpperCase();
+  $('#encOut').textContent = `sent as R ${r} · G ${g} · B ${b}`;
+}
+const pushColour = throttle(() => sendNow(full(ledHex(colour))), 120);
+function pickColour(hex, doSend){
+  colour = hex.toLowerCase(); store.set('colour', colour);
+  $('#colour').value = colour; setAccent(colour); updateReadout();
+  document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', s.dataset.hex === colour));
+  if(doSend){ stopFx(); stopBuiltin(); if(!isConnected()) toast('Connect to the strip first', true); else pushColour(); }
+}
+for(const hex of SWATCHES){
+  const b = document.createElement('button'); b.className = 'sw'; b.dataset.hex = hex; b.style.background = hex;
+  b.setAttribute('aria-label', 'Colour ' + hex); b.onclick = () => pickColour(hex, true);
+  $('#swatches').appendChild(b);
+}
+$('#colour').addEventListener('input', e => pickColour(e.target.value, true));
+$('#bright').value = bright; $('#brightOut').textContent = bright + '%';
+const pushBright = throttle(() => send(CMD.bright(bright), true), 150);
+$('#bright').addEventListener('input', e => {
+  bright = +e.target.value; store.set('bright', bright); $('#brightOut').textContent = bright + '%';
+  if(isConnected()) pushBright();
+});
+$('#whiteBtn').onclick = () => pickColour('#ffffff', true);
+$('#warmBtn').onclick = () => pickColour('#ffc98a', true);
+function renderPower(){
+  document.querySelectorAll('#powerSeg button').forEach(x => x.classList.toggle('on', powerState !== null && (x.dataset.power === '1') === powerState));
+}
+document.querySelectorAll('#powerSeg button').forEach(b => b.onclick = async () => {
+  const on = b.dataset.power === '1';
+  if(!on){ stopFx(); stopBuiltin(); }
+  if(await send(CMD.power(on))){ powerState = on; renderPower(); }
+});
+
+// =====================================================================
+// Effects: animated here, streamed as colour commands, newest frame wins.
+// An effect returns one [h,s,v] for the whole strip, or one per segment.
+// =====================================================================
+const smooth = x => x * x * (3 - 2 * x);
+function hueMix(a, b, f){ let d = ((b - a + 540) % 360) - 180; return (a + d * f + 360) % 360; }
+const FADE_HUES = [0, 25, 50, 120, 185, 220, 270, 315];
+
+const FX = {
+  rainbow: {name: 'Rainbow', desc: 'Every hue, round and round',
+    g: 'linear-gradient(90deg,#ff3b3b,#ffd23b,#3bff6a,#3bd5ff,#6a3bff,#ff3bd2,#ff3b3b)',
+    fn: (t, k) => [(t * k * 30) % 360, 1, 1]},
+  fade: {name: 'Colour fade', desc: 'Drifts slowly between colours',
+    g: 'linear-gradient(90deg,#ff3b3b,#ff9a3b,#3bff9a,#3b8cff,#b43bff,#ff3b3b)',
+    fn: (t, k) => { const P = 4 / k, i = Math.floor(t / P), f = smooth((t / P) % 1);
+      return [hueMix(FADE_HUES[i % 8], FADE_HUES[(i + 1) % 8], f), 1, 1]; }},
+  breathe: {name: 'Breathe', desc: 'Your colour, rising and falling',
+    g: 'linear-gradient(90deg,#000,var(--accent),#000)',
+    fn: (t, k, st) => [st.base[0], st.base[1], st.base[2] * (0.06 + 0.94 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t * k / 4)))]},
+  candle: {name: 'Candle', desc: 'Warm, flickering glow',
+    g: 'linear-gradient(90deg,#ff7a1a,#ffb347,#ff8a2a,#ffc266,#ff7a1a)',
+    fn: (t, k, st) => {
+      if(!st.next || t > st.next){ st.target = 0.35 + Math.random() * 0.65; st.next = t + (0.05 + Math.random() * 0.25) / k; }
+      if(st.v === undefined) st.v = 0.8;
+      st.v += (st.target - st.v) * 0.45;
+      return [24 + Math.sin(t * 3) * 4, 0.92, st.v];
+    }},
+  sunset: {name: 'Sunset', desc: 'Slow amber, rose and violet',
+    g: 'linear-gradient(90deg,#ff8a1a,#ff4d6d,#b14dff,#ff4d6d,#ff8a1a)',
+    fn: (t, k) => { const hs = [28, 350, 290, 350], P = 6 / k, i = Math.floor(t / P), f = smooth((t / P) % 1);
+      return [hueMix(hs[i % 4], hs[(i + 1) % 4], f), 1, 0.9]; }},
+  police: {name: 'Red & blue', desc: 'Alternating red and blue flashes',
+    g: 'linear-gradient(90deg,#ff2a2a 0 50%,#2a5bff 50% 100%)',
+    fn: (t, k) => { const ph = (t * k * 1.5) % 1; return ph < 0.5 ? [0, 1, ph < 0.4 ? 1 : 0] : [225, 1, ph < 0.9 ? 1 : 0]; }},
+  strobe: {name: 'Strobe', desc: 'Flashes your colour',
+    g: 'linear-gradient(90deg,var(--accent) 0 25%,#000 25% 50%,var(--accent) 50% 75%,#000 75% 100%)',
+    fn: (t, k, st) => [st.base[0], st.base[1], (t * k * 2.5) % 1 < 0.5 ? st.base[2] : 0]},
+  music: {name: 'Music', desc: 'Whole strip pulses to sound via the mic', mic: true,
+    g: 'linear-gradient(90deg,#3bd5ff,#6a3bff,#ff3bd2,#ffd23b,#3bd5ff)',
+    fn: (t, k, st) => {
+      const lvl = micLevel();
+      audio.avg = audio.avg * 0.96 + lvl * 0.04;
+      const v = Math.pow(clamp(lvl / (audio.avg * (3.4 - (sens / 100) * 2.8) + 0.002), 0, 1), 1.4);
+      st.hue = ((st.hue ?? 200) + 0.4 * k) % 360;
+      if(lvl > audio.avg * 1.7 && t - (st.beat ?? 0) > 0.2){ st.beat = t; st.hue = (st.hue + 50 + Math.random() * 80) % 360; }
+      return [st.hue, 1, Math.max(0.04, v)];
+    }},
+
+  // ---- Moving: a different colour per segment ----
+  wave: {group: 'Moving', name: 'Rainbow wave', desc: 'A rainbow flowing along the strip',
+    g: 'linear-gradient(90deg,#ff3b3b,#ffd23b,#3bff6a,#3bd5ff,#6a3bff,#ff3bd2,#ff3b3b)',
+    fn: (t, k, st, n) => Array.from({length: n}, (_, i) => [(i / n * 360 + t * k * 50) % 360, 1, 1])},
+  comet: {group: 'Moving', name: 'Comet', desc: 'Your colour racing along with a tail',
+    g: 'linear-gradient(90deg,#000 0 30%,color-mix(in srgb,var(--accent) 30%,#000),var(--accent) 70%,#000 70%)',
+    fn: (t, k, st, n) => {
+      const len = Math.max(3, Math.round(n / 4)), p = (t * k * 5) % (n + len);
+      return Array.from({length: n}, (_, i) => { const d = p - i; return [st.base[0], st.base[1], d >= 0 && d < len ? st.base[2] * Math.pow(1 - d / len, 1.6) : 0]; });
+    }},
+  twinkle: {group: 'Moving', name: 'Twinkle', desc: 'Stars sparkling on a night sky',
+    g: 'linear-gradient(90deg,#0a1440,#fff 12%,#0a1440 20% 55%,#cfe0ff 62%,#0a1440 70%)',
+    fn: (t, k, st, n) => {
+      if(!st.v || st.v.length !== n) st.v = new Array(n).fill(0);
+      if(Math.random() < 0.25 * k) st.v[Math.floor(Math.random() * n)] = 1;
+      return st.v.map((v, i) => { st.v[i] = v * (1 - 0.12 * k); return v > 0.12 ? [215, 0.25 * (1 - v), v] : [228, 1, 0.12]; });
+    }},
+  fire: {group: 'Moving', name: 'Fire', desc: 'Flickering flames, hotter at the base',
+    g: 'linear-gradient(90deg,#fff2a0,#ffb000,#ff5a00,#c81e00,#5a0a00)',
+    fn: (t, k, st, n) => {
+      if(!st.h || st.h.length !== n) st.h = new Array(n).fill(0.6);
+      return st.h.map((h, i) => {
+        const base = 1 - 0.75 * (i / Math.max(1, n - 1));
+        st.h[i] += ((base * (0.55 + Math.random() * 0.45)) - h) * 0.35 * Math.min(1, k);
+        const v = clamp(st.h[i], 0, 1);
+        return [6 + 34 * v * v, 1, 0.15 + 0.85 * v];
+      });
+    }},
+  ocean: {group: 'Moving', name: 'Ocean', desc: 'Rolling blues and teals',
+    g: 'linear-gradient(90deg,#003a8c,#00b4d8,#0057ff,#00e0c0,#003a8c)',
+    fn: (t, k, st, n) => Array.from({length: n}, (_, i) => {
+      const w = 0.5 + 0.5 * Math.sin(i * 0.7 - t * k * 1.6) * Math.cos(i * 0.23 + t * k * 0.5);
+      return [hueMix(225, 178, w), 1, 0.35 + 0.65 * w];
+    })},
+  meter: {group: 'Moving', name: 'Music meter', desc: 'Fills along the strip with the beat', mic: true,
+    g: 'linear-gradient(90deg,#22ff66 0 45%,#ffe500 45% 70%,#ff2a2a 70% 85%,#111 85%)',
+    fn: (t, k, st, n) => {
+      const lvl = micLevel();
+      audio.avg = audio.avg * 0.96 + lvl * 0.04;
+      const v = clamp(lvl / (audio.avg * (3.4 - (sens / 100) * 2.8) + 0.002), 0, 1);
+      st.lvl = Math.max(v, (st.lvl || 0) * 0.82);
+      const lit = st.lvl * n;
+      return Array.from({length: n}, (_, i) => i < lit ? [120 - 120 * (i / Math.max(1, n - 1)), 1, 1] : [0, 0, 0]);
+    }},
+
+  // ---- Halloween ----
+  pumpkin: {group: 'Halloween', name: 'Jack-o\'-lantern', desc: 'A candle flickering inside a pumpkin',
+    g: 'linear-gradient(90deg,#ff5a00,#ff8c1a,#c84400,#ff7a00,#ff5a00)',
+    fn: (t, k, st) => {
+      if(!st.next || t > st.next){ st.target = 0.3 + Math.random() * 0.7; st.next = t + (0.04 + Math.random() * 0.18) / k; }
+      if(st.v === undefined) st.v = 0.8;
+      st.v += (st.target - st.v) * 0.5;
+      return [20 + Math.random() * 6, 1, st.v];
+    }},
+  lightning: {group: 'Halloween', name: 'Lightning storm', desc: 'Dark purple sky with sudden strikes',
+    g: 'linear-gradient(90deg,#1c0638 0 40%,#fff 45%,#1c0638 50% 70%,#e8e0ff 74%,#1c0638 78%)',
+    fn: (t, k, st) => {
+      if(st.strike === undefined) st.strike = t + 1;
+      const d = t - st.strike;
+      if(d > 1.4){ st.strike = t + (2 + Math.random() * 6) / k; st.double = Math.random() < 0.6; }
+      if(d >= 0 && d < 0.07) return [260, 0.05, 1];
+      if(st.double && d >= 0.16 && d < 0.26) return [250, 0.1, 0.9];
+      if(d >= 0.26 && d < 1.4) return [270, 0.6, Math.max(0.1, 0.7 * (1 - d / 1.4))];
+      return [272, 1, 0.1 + 0.03 * Math.sin(t * 0.7)];
+    }},
+  bloodmoon: {group: 'Halloween', name: 'Blood moon', desc: 'Deep red, slowly pulsing',
+    g: 'linear-gradient(90deg,#300000,#c00000,#ff1a1a,#c00000,#300000)',
+    fn: (t, k) => [358, 1, 0.18 + 0.82 * Math.pow(0.5 - 0.5 * Math.cos(2 * Math.PI * t * k / 6), 1.6)]},
+  ghost: {group: 'Halloween', name: 'Ghost', desc: 'Pale glow drifting along the strip',
+    g: 'linear-gradient(90deg,#000,#bfefff,#e8faff,#000)',
+    fn: (t, k, st, n) => {
+      const p = ((t * k * 1.2) % (n + 6)) - 3;
+      return Array.from({length: n}, (_, i) => { const d = Math.abs(i - p); return [190, 0.25, d < 3 ? 0.85 * Math.cos(d / 3 * Math.PI / 2) : 0]; });
+    }},
+};
+
+let efSpeed = store.get('fxSpeed', 50), efBright = store.get('fxBright', 100), sens = store.get('sens', 50);
+let fxName = null, fxTimer = null, fxStart = 0, fxState = {}, fxLastKey = '', fxLastAccent = 0;
+let fxPending = null, fxBusy = false, audio = null, wakeLock = null;
+
+function fxPush(frame){ fxPending = frame; if(!fxBusy) pump(); }
+async function pump(){
+  fxBusy = true;
+  while(fxPending){ const f = fxPending; fxPending = null; await sendFrame(f, true); }
+  fxBusy = false;
+}
+async function keepAwake(on){
+  try{
+    if(on && !wakeLock && navigator.wakeLock){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); }
+    if(!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', () => { if(fxName && document.visibilityState === 'visible') keepAwake(true); });
+
+async function startMic(){
+  const stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const an = ctx.createAnalyser(); an.fftSize = 1024;
+  ctx.createMediaStreamSource(stream).connect(an);
+  audio = {stream, ctx, an, buf: new Float32Array(an.fftSize), avg: 0.02};
+}
+function stopMic(){
+  if(!audio) return;
+  audio.stream.getTracks().forEach(tr => tr.stop());
+  try{ audio.ctx.close(); }catch(e){}
+  audio = null;
+}
+function micLevel(){
+  if(!audio) return 0;
+  audio.an.getFloatTimeDomainData(audio.buf);
+  let s = 0; for(const x of audio.buf) s += x * x;
+  return Math.sqrt(s / audio.buf.length);
+}
+
+async function startFx(name){
+  if(!isConnected()){ toast('Connect to the strip first', true); return; }
+  stopFx(true); stopBuiltin();
+  if(FX[name].mic){
+    try{ await startMic(); }
+    catch(e){ toast('Music effects need the microphone. Allow it for this site in Chrome and try again.', true); log('err', e.message); return; }
+  }
+  sendGen++;
+  fxName = name; fxStart = performance.now(); fxLastKey = '';
+  fxState = {base: rgbToHsv(...hexToRgb(colour))};
+  fxTimer = setInterval(fxTick, 70);
+  keepAwake(true); renderFx();
+  log('info', 'Effect started: ' + FX[name].name);
+}
+function stopFx(silent){
+  if(!fxName) return;
+  clearInterval(fxTimer); fxTimer = null; fxName = null; fxPending = null; sendGen++;
+  stopMic(); keepAwake(false); renderFx();
+  setAccent(colour);
+  if(!silent) log('info', 'Effect stopped');
+}
+function fxTick(){
+  if(!isConnected()){ stopFx(); return; }
+  const t = (performance.now() - fxStart) / 1000, k = 0.2 + (efSpeed / 100) * 2.8;
+  let out = FX[fxName].fn(t, k, fxState, segCount);
+  if(!Array.isArray(out[0])) out = full(out);
+  const scale = efBright / 100;
+  const frame = out.map(([h, s, v]) => ledRgb(hsvToRgb(h, clamp(s, 0, 1), clamp(v, 0, 1) * scale)));
+  const key = frame.join('|');
+  if(key === fxLastKey) return;
+  fxLastKey = key;
+  fxPush(frame);
+  const mid = out[Math.floor(out.length / 2)];
+  if(t - fxLastAccent > 0.25 && mid[2] * scale > 0.2){ fxLastAccent = t; setAccent(hsvToHex(mid[0], clamp(mid[1], 0, 1), 1)); }
+}
+function renderFx(){
+  document.querySelectorAll('.fx').forEach(b => b.classList.toggle('on', b.dataset.fx === fxName));
+  $('#fxStop').hidden = !fxName;
+  $('#sensRow').hidden = !(fxName && FX[fxName].mic);
+}
+for(const group of ['Everyday', 'Moving', 'Halloween']){
+  const head = document.createElement('div'); head.className = 'label fxgroup'; head.textContent = group === 'Moving' ? 'Moving along the strip' : group;
+  $('#fxGrid').appendChild(head);
+  for(const [id, fx] of Object.entries(FX)){
+    if((fx.group || 'Everyday') !== group) continue;
+    const b = document.createElement('button'); b.className = 'fx'; b.dataset.fx = id;
+    b.innerHTML = '<i></i><b></b><span></span>';
+    b.children[0].style.setProperty('--g', fx.g);
+    b.children[1].textContent = fx.name; b.children[2].textContent = fx.desc;
+    b.onclick = () => fxName === id ? stopFx() : startFx(id);
+    $('#fxGrid').appendChild(b);
+  }
+}
+$('#fxStop').onclick = () => stopFx();
+$('#efSpeed').value = efSpeed; $('#efSpeedOut').textContent = efSpeed;
+$('#efBright').value = efBright; $('#efBrightOut').textContent = efBright + '%';
+$('#sens').value = sens; $('#sensOut').textContent = sens;
+$('#efSpeed').addEventListener('input', e => {
+  const now = performance.now(), kOld = 0.2 + (efSpeed / 100) * 2.8;
+  efSpeed = +e.target.value; const kNew = 0.2 + (efSpeed / 100) * 2.8;
+  if(fxName) fxStart = now - (now - fxStart) * kOld / kNew;
+  $('#efSpeedOut').textContent = efSpeed; store.set('fxSpeed', efSpeed);
+});
+$('#efBright').addEventListener('input', e => { efBright = +e.target.value; $('#efBrightOut').textContent = efBright + '%'; store.set('fxBright', efBright); });
+$('#sens').addEventListener('input', e => { sens = +e.target.value; $('#sensOut').textContent = sens; store.set('sens', sens); });
+renderFx();
+
+// Built-in scenes (run on the strip's own chip). IDs from the H617A notes.
+const BUILTIN = [
+  ['Sunrise', 0x00], ['Sunset', 0x01], ['Nightlight', 0x02], ['Movie', 0x04], ['Dating', 0x05],
+  ['Romantic', 0x07], ['Illumination', 0x3f], ['Cheerful', 0x40], ['Strip\'s mic', 'mic'],
+];
+let builtinOn = null;
+function stopBuiltin(){ builtinOn = null; renderBuiltin(); }
+function renderBuiltin(){ document.querySelectorAll('#builtin button').forEach(b => b.classList.toggle('on', b.dataset.id === builtinOn)); }
+for(const [name, id] of BUILTIN){
+  const b = document.createElement('button'); b.textContent = name; b.dataset.id = String(id);
+  b.onclick = async () => {
+    stopFx(); sendGen++;
+    if(await send(id === 'mic' ? CMD.micMode() : CMD.scene(id))){ resetSent(); builtinOn = String(id); renderBuiltin(); toast(name + ' sent. Did the strip change?'); }
+  };
+  $('#builtin').appendChild(b);
+}
+
+// =====================================================================
+// Painter: one colour per segment
+// =====================================================================
+let segs = store.get('segs', null);
+if(!Array.isArray(segs) || segs.length !== segCount) segs = new Array(segCount).fill(null);
+let tool = 'paint', brush = store.get('brush', '#2a7cff'), painting = false, last = null;
+
+function buildTape(){
+  const el = $('#tape'); el.innerHTML = '';
+  const cols = segCount > 15 ? Math.ceil(segCount / 2) : segCount;
+  el.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+  for(let i = 0; i < segCount; i++){
+    const d = document.createElement('div'); d.className = 'seg-cell'; d.dataset.i = i; d.textContent = i + 1;
+    el.appendChild(d);
+  }
+  renderPaint();
+}
+function paintCell(i){
+  const d = document.querySelector(`.seg-cell[data-i="${i}"]`); if(!d) return;
+  d.classList.toggle('lit', !!segs[i]); d.style.setProperty('--c', segs[i] || 'transparent');
+}
+function renderPaint(){ for(let i = 0; i < segCount; i++) paintCell(i); }
+const paintFrame = () => segs.map(hex => hex ? ledHex(hex) : [0, 0, 0]);
+function needsSegments(){
+  if(COLOUR_METHODS[colourMethod].segs) return false;
+  toast('The colour command picked in Settings can only colour the whole strip', true); return true;
+}
+async function sendPaint(quiet){
+  if(!isConnected()){ if(!quiet) toast('Connect to the strip first', true); return; }
+  if(needsSegments()) return;
+  stopFx(); stopBuiltin();
+  if(await sendNow(paintFrame()) && !quiet) toast('Sent to strip');
+}
+// live painting: only the changed segments go out
+const pushPaint = throttle(() => { if(!COLOUR_METHODS[colourMethod].segs) return; stopFx(); stopBuiltin(); sendFrame(paintFrame(), false); }, 120);
+function changed(){ store.set('segs', segs); if($('#live').checked && isConnected()) pushPaint(); }
+function applyAt(el){
+  if(!el || !el.dataset || el.dataset.i === undefined) return false;
+  const i = +el.dataset.i, v = tool === 'erase' ? null : brush;
+  if(segs[i] === v) return false;
+  segs[i] = v; paintCell(i); return true;
+}
+$('#tape').addEventListener('pointerdown', e => {
+  if(e.target.dataset.i === undefined) return;
+  e.preventDefault(); painting = true; last = {x: e.clientX, y: e.clientY};
+  if(applyAt(e.target) && $('#live').checked && isConnected()) pushPaint();
+});
+window.addEventListener('pointermove', e => {
+  if(!painting) return;
+  const dx = e.clientX - last.x, dy = e.clientY - last.y, steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 4));
+  let any = false;
+  for(let s = 1; s <= steps; s++) any = applyAt(document.elementFromPoint(last.x + dx * s / steps, last.y + dy * s / steps)) || any;
+  last = {x: e.clientX, y: e.clientY};
+  if(any && $('#live').checked && isConnected()) pushPaint();
+});
+function endStroke(){ if(!painting) return; painting = false; changed(); }
+window.addEventListener('pointerup', endStroke);
+window.addEventListener('pointercancel', endStroke);
+document.querySelectorAll('#toolSeg button').forEach(b => b.onclick = () => {
+  tool = b.dataset.tool;
+  document.querySelectorAll('#toolSeg button').forEach(x => x.classList.toggle('on', x === b));
+});
+$('#brush').value = brush;
+$('#brush').addEventListener('input', e => { brush = e.target.value; store.set('brush', brush); });
+// fill every segment from a function of position f (0 = control-box end, 1 = far end)
+function fillAll(fn){ segs = segs.map((_, i) => fn(segCount > 1 ? i / (segCount - 1) : 0, i)); }
+$('#fillBtn').onclick = () => { fillAll(() => brush); renderPaint(); changed(); };
+$('#clearBtn').onclick = () => { segs = segs.map(() => null); renderPaint(); changed(); };
+$('#gradA').value = store.get('gradA', '#ff2a2a');
+$('#gradB').value = store.get('gradB', '#2a7cff');
+$('#gradBtn').onclick = () => {
+  const a = $('#gradA').value, b = $('#gradB').value;
+  store.set('gradA', a); store.set('gradB', b);
+  fillAll(f => mixHex(a, b, f)); renderPaint(); changed();
+};
+$('#rainbowBtn').onclick = () => { fillAll(f => hsvToHex(f * 330, 1, 1)); renderPaint(); changed(); };
+$('#sendPaint').onclick = () => sendPaint(false);
+
+function stops(f, list){
+  for(let i = 1; i < list.length; i++){
+    const [p1, c1] = list[i - 1], [p2, c2] = list[i];
+    if(f <= p2){ if(!c1 || !c2) return f - p1 < p2 - f ? c1 : c2; return mixHex(c1, c2, (f - p1) / (p2 - p1 || 1)); }
+  }
+  return list[list.length - 1][1];
+}
+const SCENES = {
+  sunset: {name: 'Sunset', fn: f => stops(f, [[0, '#ff8a00'], [0.4, '#ff3c3c'], [0.75, '#b02a8a'], [1, '#3a0a6e']])},
+  ocean: {name: 'Ocean', fn: f => stops(f, [[0, '#00e0c0'], [0.5, '#0090ff'], [1, '#1a00a0']])},
+  christmas: {name: 'Christmas', fn: (f, i) => ['#ff1a1a', '#14ff3c', '#ffe7b0'][i % 3]},
+  sky: {name: 'Spooky sky', fn: f => stops(f, [[0, '#ff8a00'], [0.2, '#ff3c00'], [0.55, '#7a1a8a'], [1, '#14002e']])},
+  candy: {name: 'Candy corn', fn: (f, i) => ['#ffc400', '#ff6000', '#fff2dc'][i % 3]},
+  toxic: {name: 'Toxic', fn: (f, i) => i % 2 ? '#8a2be2' : '#39ff14'},
+};
+for(const [id, sc] of Object.entries(SCENES)){
+  const b = document.createElement('button'); b.className = 'scene';
+  const prev = Array.from({length: 12}, (_, i) => sc.fn(i / 11, i) || '#000000');
+  b.innerHTML = '<i></i><span></span>';
+  b.children[0].style.setProperty('--g', `linear-gradient(90deg,${prev.map((c, i) => `${c} ${i * 100 / 12}% ${(i + 1) * 100 / 12}%`).join(',')})`);
+  b.children[1].textContent = sc.name;
+  b.onclick = () => {
+    fillAll(sc.fn); renderPaint(); store.set('segs', segs);
+    if(isConnected()) sendPaint(false); else toast('Connect to the strip to send it');
+  };
+  $('#scenes').appendChild(b);
+}
+$('#segCount').value = segCount;
+$('#segCount').addEventListener('change', e => {
+  segCount = clamp(+e.target.value || 15, 1, 30); e.target.value = segCount; store.set('segCount', segCount);
+  segs = Array.from({length: segCount}, (_, i) => segs[i] ?? null); store.set('segs', segs);
+  resetSent(); buildTape();
+});
+$('#numberBtn').onclick = () => {
+  fillAll((f, i) => i === 0 ? '#ffffff' : i % 2 ? '#ff2a2a' : '#2a7cff'); renderPaint(); store.set('segs', segs);
+  if(isConnected()) sendPaint(false); else toast('Connect to the strip first', true);
+};
+
+// =====================================================================
+// Command finder, settings, advanced
+// =====================================================================
+const RED = [255, 0, 0];
+const COLOUR_TESTS = [
+  ['A', 'Segment 33 05 15 01 (H617A)', () => COLOUR_METHODS.seg.fn(RED, maskBytes(allSegs())), 'seg'],
+  ['B', 'Segment 33 05 0B (H6199)', () => COLOUR_METHODS.seg0b.fn(RED, maskBytes(allSegs())), 'seg0b'],
+  ['C', 'Whole strip 33 05 02', () => COLOUR_METHODS.rgb02.fn(RED), 'rgb02'],
+  ['D', 'Whole strip 33 05 0D', () => COLOUR_METHODS.rgb0d.fn(RED), 'rgb0d'],
+  ['E', 'Segment, first half only', () => COLOUR_METHODS.seg.fn(RED, maskBytes(allSegs().slice(0, Math.ceil(segCount / 2))))],
+];
+const BRIGHT_TESTS = [
+  ['B1', '50 on a 1–100 scale', () => [0x33, 0x04, 50]],
+  ['B2', '128 on a 1–255 scale', () => [0x33, 0x04, 128]],
+];
+function buildTests(list, el, kind){
+  for(const [id, label, bytes] of list){
+    const b = document.createElement('button'); b.className = 'test';
+    b.innerHTML = '<b></b><span></span>'; b.children[0].textContent = id; b.children[1].textContent = label;
+    b.onclick = async () => {
+      stopFx(); stopBuiltin(); sendGen++; resetSent(); log('info', `${kind} test ${id}: ${label}`);
+      if(await send(bytes())){ b.classList.add('tried'); toast(`Sent test ${id}. Did the strip change?`); }
+    };
+    el.appendChild(b);
+  }
+}
+buildTests(COLOUR_TESTS, $('#colourTests'), 'Colour');
+buildTests(BRIGHT_TESTS, $('#brightTests'), 'Brightness');
+
+for(const [id, m] of Object.entries(COLOUR_METHODS)){
+  const o = document.createElement('option'); o.value = id; o.textContent = m.label; $('#colourMethod').appendChild(o);
+}
+$('#colourMethod').value = colourMethod;
+$('#colourMethod').addEventListener('change', e => { colourMethod = e.target.value; store.set('colourMethod', colourMethod); resetSent(); toast('Colour command changed'); });
+$('#brightScale').value = brightScale;
+$('#brightScale').addEventListener('change', e => { brightScale = e.target.value; store.set('brightScale', brightScale); });
+$('#gamma').checked = gamma;
+$('#gamma').addEventListener('change', e => { gamma = e.target.checked; store.set('gamma', gamma); updateReadout(); resetSent(); });
+
+$('#statusBtn').onclick = () => { send(CMD.keepAlive()); send(CMD.getBright()); };
+$('#segQueryBtn').onclick = () => send(CMD.getSegments());
+$('#rawBtn').onclick = () => {
+  const v = $('#raw').value.replace(/\s+/g, '');
+  if(!/^([0-9a-f]{2}){1,19}$/i.test(v)){ toast('Enter 1 to 19 whole bytes in hex, like 330101', true); return; }
+  resetSent(); send(v.match(/../g).map(h => parseInt(h, 16)));
+};
+$('#raw').addEventListener('keydown', e => { if(e.key === 'Enter') $('#rawBtn').click(); });
+$('#copyLog').onclick = async () => {
+  const text = [...$('#log').children].map(r => r.textContent).join('\n');
+  try{ await navigator.clipboard.writeText(text); toast('Log copied'); }
+  catch(e){ const r = document.createRange(); r.selectNodeContents($('#log')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('Log selected: copy it from the menu'); }
+};
+
+// start
+pickColour(colour, false);
+buildTape();
+renderConnection();
+showTab(store.get('tab', 'colour'));
+log('info', navigator.bluetooth ? 'Ready. Tap Connect to find the strip.' : 'This browser has no Bluetooth support.');
+</script>

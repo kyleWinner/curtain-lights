@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Curtain Lights</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -175,6 +177,9 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
   font-size:14px;transition:all .22s;max-width:calc(100vw - 32px);box-shadow:0 10px 30px rgba(0,0,0,.45)}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #toast.err{border-color:var(--err)}
+.devswitch{display:flex;width:100%}
+.devswitch a{flex:1;text-align:center;text-decoration:none;padding:8px 14px;border-radius:9px;color:var(--muted);font-weight:500}
+.devswitch a.on{background:var(--accent);color:var(--on-accent)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -191,6 +196,8 @@ details.sub summary{cursor:pointer;color:var(--muted);font-size:13.5px}
   </header>
 
   <div class="stack">
+    <nav class="seg devswitch" aria-label="Device"><a href="./" class="on" aria-current="page">Curtain</a><a href="strip.html">Strip</a></nav>
+
     <!-- connection -->
     <section class="panel" id="connectPanel">
       <div class="connect" id="connectOff">
