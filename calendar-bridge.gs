@@ -16,12 +16,17 @@
  *  5. Deploy > New deployment > type Web app.
  *     Execute as: Me.  Who has access: Anyone.  Deploy, then allow access when asked.
  *  6. Copy the Web app URL (ends in /exec) into the tablet: Settings > Calendar.
+ *  7. For birthdays: in the editor's left bar, Services (+) > Google Calendar API > Add.
  *
  * If you change this code later: Deploy > Manage deployments > edit > Version: New version.
  */
 
 const SECRET = 'change-this-to-a-long-random-phrase';
 const CALENDAR_ID = 'primary';
+
+// Shown on the tablet as well, read-only. Set to '' / false to leave them out.
+const HOLIDAYS_ID = 'en.uk#holiday@group.v.calendar.google.com';   // Google's "Holidays in United Kingdom"
+const SHOW_BIRTHDAYS = true;   // birthdays from your Google Contacts (Google keeps them in your main calendar)
 
 // Colours set on events so they match on your phones too (Google's colour IDs).
 const WHO_COLOURS = {p1: '9', p2: '4', both: '3'};   // Blueberry, Flamingo, Grape
@@ -43,7 +48,10 @@ function handle_(p) {
     switch (p.action) {
       case 'list': {
         const from = new Date(p.from), to = new Date(p.to);
-        return out_({ok: true, name: cal.getName(), tz: Session.getScriptTimeZone(), events: cal.getEvents(from, to).map(toJson_)});
+        let events = cal.getEvents(from, to).filter(e => !(SHOW_BIRTHDAYS && isBirthday_(e))).map(toJson_);
+        if (HOLIDAYS_ID) events = events.concat(holidays_(from, to));
+        if (SHOW_BIRTHDAYS) events = events.concat(birthdays_(from, to));
+        return out_({ok: true, name: cal.getName(), tz: Session.getScriptTimeZone(), events: events});
       }
       case 'add': {
         const ev = p.allDay
@@ -75,6 +83,36 @@ function handle_(p) {
   } catch (err) {
     return out_({ok: false, error: String(err && err.message || err)});
   }
+}
+
+function isBirthday_(e) {
+  try { return e.getEventType() === CalendarApp.EventType.BIRTHDAY; } catch (err) { return false; }
+}
+
+function holidays_(from, to) {
+  try {
+    let hc = CalendarApp.getCalendarById(HOLIDAYS_ID);
+    if (!hc) hc = CalendarApp.subscribeToCalendar(HOLIDAYS_ID);
+    return hc.getEvents(from, to).map(e => Object.assign(toJson_(e), {
+      kind: 'holiday', readOnly: true, observance: /observance/i.test(e.getDescription() || ''),
+    }));
+  } catch (err) { return []; }
+}
+
+function birthdays_(from, to) {
+  try {
+    // The Calendar API service (step 7) can ask for birthdays directly.
+    if (typeof Calendar !== 'undefined' && Calendar.Events) {
+      const res = Calendar.Events.list('primary', {eventTypes: ['birthday'], singleEvents: true, maxResults: 250,
+        timeMin: from.toISOString(), timeMax: to.toISOString()});
+      return (res.items || []).filter(it => it.start && it.start.date).map(it => ({
+        id: 'birthday:' + it.id, title: it.summary || 'Birthday', allDay: true, start: it.start.date, end: it.end.date,
+        location: '', notes: '', color: '', who: '', recurring: true, kind: 'birthday', readOnly: true,
+      }));
+    }
+    return CalendarApp.getDefaultCalendar().getEvents(from, to).filter(isBirthday_)
+      .map(e => Object.assign(toJson_(e), {kind: 'birthday', readOnly: true}));
+  } catch (err) { return []; }
 }
 
 function find_(cal, p) {

@@ -134,13 +134,13 @@
       <div class="card month">
         <div class="monthHead">
           <h2 id="calTitle"></h2>
-          <div class="legend" id="legend"></div>
           <button class="nav" id="calPrev" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
           <button class="btn ghost sm" id="calToday">Today</button>
           <button class="nav" id="calNext" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
         </div>
         <div class="dows"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
         <div class="mgrid" id="mgrid"></div>
+        <div class="legend" id="legend"></div>
       </div>
       <div class="card agenda">
         <div class="agHead"><div class="big" id="agNum"></div><div class="dd" id="agDay"></div><button class="btn sm" id="agAdd">+ Add</button></div>
@@ -207,6 +207,10 @@
       <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input class="field" id="calSecret" type="password" placeholder="Secret phrase" autocomplete="off"><button class="btn sm" id="calSave">Connect</button></div>
       <p class="hint" id="calStatus"></p>
       <div class="two" style="margin-top:10px"><input class="field" id="calP1" maxlength="16" placeholder="Your name"><input class="field" id="calP2" maxlength="16" placeholder="Partner's name"></div>
+      <label class="opt" style="margin-top:8px">Bank holidays <button class="switch" id="oHol" role="switch" aria-checked="true" style="--dc:#4ade80"><i></i></button></label>
+      <label class="opt">Other UK days (Mother's Day, Halloween…) <button class="switch" id="oObs" role="switch" aria-checked="false" style="--dc:#4ade80"><i></i></button></label>
+      <label class="opt">Birthdays from your Google Contacts <button class="switch" id="oBday" role="switch" aria-checked="true" style="--dc:#4ade80"><i></i></button></label>
+      <p class="hint">Holidays and birthdays need the latest calendar-bridge.gs (see step 7 in it for birthdays).</p>
       <p class="hint">Names for the colour key. Events you add here get matching colours on your phones too: blue for you, pink for your partner, purple for both.</p>
     </div>
 

@@ -1242,8 +1242,20 @@ const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() ==
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const parseYmd = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const hm = d => { const p = clockParts(d); return p.hh + ':' + p.mm + (p.ampm ? p.ampm : ''); };
-function evWho(e){ return e.who || {9: 'p1', 4: 'p2', 3: 'both'}[e.color] || ''; }
-function evColor(e){ const w = evWho(e); return w ? WHO_COL[w] : (GCOL[e.color] || '#9aa3b8'); }
+const KIND_COL = {holiday: '#3ddc97', observance: '#6fae94', birthday: '#ffb347'};
+function evWho(e){ return e.kind ? '' : e.who || {9: 'p1', 4: 'p2', 3: 'both'}[e.color] || ''; }
+function evColor(e){
+  if(e.kind === 'holiday') return e.observance ? KIND_COL.observance : KIND_COL.holiday;
+  if(e.kind === 'birthday') return KIND_COL.birthday;
+  const w = evWho(e); return w ? WHO_COL[w] : (GCOL[e.color] || '#9aa3b8');
+}
+const evTitle = e => (e.kind === 'birthday' ? '🎂 ' : '') + (e.title || '(No title)');
+// The tablet's own switches for the read-only extras the script sends.
+function evShown(e){
+  if(e.kind === 'holiday') return e.observance ? ls.get('home.cal.obs', false) : ls.get('home.cal.hol', true);
+  if(e.kind === 'birthday') return ls.get('home.cal.bday', true);
+  return true;
+}
 const byStart = (a, b) => (dayStart(a.s) - dayStart(b.s)) || (b.allDay - a.allDay) || (a.s - b.s);
 function parseEvent(e){
   return Object.assign({}, e, e.allDay ? {s: parseYmd(e.start), e: parseYmd(e.end)} : {s: new Date(e.start), e: new Date(e.end)});
@@ -1269,7 +1281,7 @@ async function calLoad(){
   CAL.loading = true;
   try{
     const j = await calApi('list', {from: from.toISOString(), to: to.toISOString()});
-    CAL.events = (j.events || []).map(parseEvent).sort(byStart);
+    CAL.events = (j.events || []).map(parseEvent).filter(evShown).sort(byStart);
     CAL.loaded = true; CAL.err = null; CAL.name = j.name;
     ls.set('home.cal.cache', j.events || []);
   }catch(e){ CAL.err = e; }
@@ -1286,7 +1298,10 @@ function renderCal(){
   const t = dayStart(new Date()), gs = gridStart(CAL.month), n = names();
   $('#calTitle').textContent = CAL.month.toLocaleDateString('en-GB', {month: 'long', year: 'numeric'});
   const lg = $('#legend'); lg.innerHTML = '';
-  [['p1', n.p1], ['p2', n.p2], ['both', 'Both']].forEach(([k, label]) => { const s = h('span', null, h('i'), label); s.firstChild.style.setProperty('--ec', WHO_COL[k]); lg.appendChild(s); });
+  const keys = [[WHO_COL.p1, n.p1], [WHO_COL.p2, n.p2], [WHO_COL.both, 'Both']];
+  if(CAL.events.some(e => e.kind === 'holiday')) keys.push([KIND_COL.holiday, 'Holiday']);
+  if(CAL.events.some(e => e.kind === 'birthday')) keys.push([KIND_COL.birthday, 'Birthday']);
+  keys.forEach(([col, label]) => { const s = h('span', null, h('i'), label); s.firstChild.style.setProperty('--ec', col); lg.appendChild(s); });
   const grid = $('#mgrid'); grid.innerHTML = '';
   const cellH = grid.clientHeight ? (grid.clientHeight - 20) / 6 : 80, fit = Math.max(1, Math.floor((cellH - 32) / 15));
   for(let i = 0; i < 42; i++){
@@ -1295,7 +1310,7 @@ function renderCal(){
       onclick: () => { CAL.sel = d; if(d.getMonth() !== CAL.month.getMonth()){ CAL.month = new Date(d.getFullYear(), d.getMonth(), 1); calLoad(); } renderCal(); }},
       h('span', {class: 'dn'}, String(d.getDate())));
     evs.slice(0, evs.length > fit ? fit - 1 : fit).forEach(e => {
-      const c = h('div', {class: 'ech' + (e.allDay ? ' ad' : '')}, e.allDay ? null : h('i'), h('span', null, e.title || '(No title)'));
+      const c = h('div', {class: 'ech' + (e.allDay ? ' ad' : '')}, e.allDay ? null : h('i'), h('span', null, evTitle(e)));
       c.style.setProperty('--ec', evColor(e)); cell.appendChild(c);
     });
     if(evs.length > fit) cell.appendChild(h('div', {class: 'emore'}, `+${evs.length - fit + 1} more`));
@@ -1304,11 +1319,12 @@ function renderCal(){
   renderAgenda();
 }
 function evRow(e, showDate){
-  const when = e.allDay ? h('div', {class: 'when'}, showDate ? h('b', null, e.s.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric'})) : null, 'All day')
+  const allDayLabel = e.kind === 'birthday' ? 'Birthday' : e.kind === 'holiday' ? 'Holiday' : 'All day';
+  const when = e.allDay ? h('div', {class: 'when'}, showDate ? h('b', null, e.s.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric'})) : null, allDayLabel)
     : h('div', {class: 'when'}, showDate ? h('b', null, e.s.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric'})) : h('b', null, hm(e.s)), showDate ? hm(e.s) : hm(e.e));
   const w = evWho(e), n = names(), who = w === 'p1' ? n.p1 : w === 'p2' ? n.p2 : w === 'both' ? 'Both' : '';
   const row = h('button', {class: 'ev', onclick: () => openEditor(e)}, h('span', {class: 'bar2'}), when,
-    h('div', {class: 'what'}, h('b', null, e.title || '(No title)'), (who || e.location) ? h('small', null, [who, e.location].filter(Boolean).join(' · ')) : null));
+    h('div', {class: 'what'}, h('b', null, evTitle(e)), (who || e.location) ? h('small', null, [who, e.location].filter(Boolean).join(' · ')) : null));
   row.style.setProperty('--ec', evColor(e));
   return row;
 }
@@ -1338,7 +1354,7 @@ function renderCalTile(){
   const now = new Date(), next = CAL.events.find(e => e.allDay ? e.e > dayStart(now) : e.e > now);
   if(!next){ el.textContent = CAL.loaded ? 'Nothing coming up' : ''; return; }
   const t = dayStart(now), day = sameDay(next.s, t) || next.s < t ? 'Today' : sameDay(next.s, addDays(t, 1)) ? 'Tomorrow' : next.s.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric'});
-  el.textContent = `${day}${next.allDay ? '' : ' ' + hm(next.s)} · ${next.title}`;
+  el.textContent = `${day}${next.allDay ? '' : ' ' + hm(next.s)} · ${evTitle(next)}`;
 }
 // editor
 let evEditing = null, evWhoSel = 'p1', evAllDay = false, evDelArmed = false;
@@ -1357,8 +1373,12 @@ function openEditor(e, date){
   const tt = x => String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0');
   $('#evStart').value = tt(start); $('#evEnd').value = tt(end);
   setEvAllDay(e ? e.allDay : false); setEvWho(e ? (evWho(e) || 'both') : 'p1');
-  const ro = !!(e && e.recurring);
+  const ro = !!(e && (e.recurring || e.readOnly));
+  $('#evRecurring').textContent = !e ? '' : e.kind === 'birthday' ? 'Birthdays come from Google Contacts. Change them there.'
+    : e.kind === 'holiday' ? 'From Google\'s UK holidays calendar.' : 'This event repeats, so change it in Google Calendar.';
   $('#evRecurring').hidden = !ro; $('#evSave').hidden = ro;
+  $('#evHead').textContent = e && e.kind === 'birthday' ? 'Birthday' : e && e.kind === 'holiday' ? 'Holiday' : e ? 'Edit event' : 'New event';
+  $('#evWho').hidden = !!(e && e.kind);
   $('#evDel').hidden = !e || ro; $('#evDel').textContent = 'Delete';
   $$('#evSheet .field').forEach(f => { f.disabled = ro; });
   openSheet('evSheet');
@@ -1562,6 +1582,8 @@ function bindSettings(){
     try{ const j = await calApi('list', {from: new Date().toISOString(), to: addDays(new Date(), 7).toISOString()}); $('#calStatus').textContent = `Connected to “${j.name}”.`; CAL.loaded = false; calLoad(); }
     catch(e){ $('#calStatus').textContent = e.message; }
   };
+  const calSwitch = (id, key, def) => bindSwitch($(id), key, def, () => calLoad());
+  calSwitch('#oHol', 'home.cal.hol', true); calSwitch('#oObs', 'home.cal.obs', false); calSwitch('#oBday', 'home.cal.bday', true);
   $('#calP1').addEventListener('input', debounce(e => { ls.set('home.cal.p1', e.target.value.trim()); renderCal(); }, 300));
   $('#calP2').addEventListener('input', debounce(e => { ls.set('home.cal.p2', e.target.value.trim()); renderCal(); }, 300));
   // alexa
@@ -1685,6 +1707,11 @@ function demoCalApi(action, data){
       Object.assign({id: 'e10', title: 'Pick up parcel', who: 'p2'}, at(0, 16, 0, 30)),
       Object.assign({id: 'e11', title: 'Work drinks', who: 'p1'}, at(-6, 18, 0, 120)),
       Object.assign({id: 'e12', title: 'Book club', who: 'p2'}, at(-1, 19, 0, 90)),
+      Object.assign({id: 'h1', title: 'St Andrew\'s Day', kind: 'holiday', readOnly: true}, ad(19)),
+      Object.assign({id: 'h2', title: 'Christmas Day', kind: 'holiday', readOnly: true}, ad(44)),
+      Object.assign({id: 'h3', title: 'Remembrance Sunday', kind: 'holiday', readOnly: true, observance: true}, ad(-3)),
+      Object.assign({id: 'b1', title: 'Mum\'s birthday', kind: 'birthday', readOnly: true, recurring: true}, ad(4)),
+      Object.assign({id: 'b2', title: 'Sam\'s birthday', kind: 'birthday', readOnly: true, recurring: true}, ad(15)),
     ].map(e => Object.assign({allDay: false, location: '', notes: '', color: '', recurring: false}, e));
   }
   if(action === 'list') return Promise.resolve({ok: true, name: 'Home', events: demoEvents});
@@ -1703,7 +1730,7 @@ bindSettings(); setFollow(follow);
 render('curtain'); render('strip');
 $('#oMotion').setAttribute('aria-checked', String(ls.get('home.motion', false))); $('#motionBox').hidden = !ls.get('home.motion', false);
 { const t = new Date(); CAL.month = new Date(t.getFullYear(), t.getMonth(), 1); CAL.sel = dayStart(t);
-  const cached = ls.get('home.cal.cache', null); if(cached && !DEMO){ CAL.events = cached.map(parseEvent).sort(byStart); } }
+  const cached = ls.get('home.cal.cache', null); if(cached && !DEMO){ CAL.events = cached.map(parseEvent).filter(evShown).sort(byStart); } }
 go(homeView());
 tick(true); setInterval(() => tick(), 1000);
 renderGn(); loadWeather();

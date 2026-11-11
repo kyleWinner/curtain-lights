@@ -305,7 +305,7 @@ body[data-view=lights] .glows{opacity:1}
 .calBody{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,63fr) minmax(0,37fr);gap:var(--gap);padding:6px var(--pad) var(--pad)}
 .month{display:flex;flex-direction:column;min-height:0;padding:14px 14px 12px}
 .monthHead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.monthHead h2{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.02em;margin:0 auto 0 4px}
+.monthHead h2{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.02em;margin:0 auto 0 4px;white-space:nowrap}
 .nav{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);display:grid;place-items:center;padding:0}
 .nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .dows{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 2px 6px}
@@ -339,7 +339,7 @@ body[data-view=lights] .glows{opacity:1}
 .agEmpty{color:var(--muted);font-size:14px;padding:14px 2px}
 .upHead{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:14px 2px 2px}
 .calNote{display:flex;flex-direction:column;align-items:flex-start;gap:10px;color:var(--muted);font-size:14px;line-height:1.5;padding:6px 2px}
-.legend{display:flex;gap:12px;font-size:12.5px;color:var(--muted);margin-left:8px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);margin:10px 4px 0}
 .legend span{display:flex;align-items:center;gap:5px}
 .legend i{width:8px;height:8px;border-radius:50%;background:var(--ec)}
 .closeCal{display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
