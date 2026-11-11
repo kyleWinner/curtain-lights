@@ -1690,9 +1690,9 @@ function bindSettings(){
   $('#usbName').value = ls.get('usb.name', '');
   $('#usbName').addEventListener('input', debounce(e => {
     ls.set('usb.name', e.target.value.trim()); links.usb.label = usbName();
-    $('#dev-usb .devName').textContent = usbName(); $('#pairUsb').textContent = 'Pair the ' + usbName().toLowerCase(); renderHomeTiles();
+    $('#dev-usb .devName').textContent = usbName(); $('#pairUsb').textContent = 'Pair the ' + usbName(); renderHomeTiles();
   }, 300));
-  $('#pairUsb').textContent = 'Pair the ' + usbName().toLowerCase();
+  $('#pairUsb').textContent = 'Pair the ' + usbName();
   $('#usbSegs').value = String(usbSegs());
   $('#usbSegs').onchange = e => { ls.set('usb.segs', clamp(+e.target.value || 20, 2, 60)); e.target.value = usbSegs(); render('usb'); if(links.usb.on && L.usb.on) pushLook('usb'); };
   // colour test: each button tries one colour command (red); the one that works is kept
