@@ -52,14 +52,15 @@ button{cursor:pointer}
   grid-template-columns:minmax(0,34fr) minmax(0,66fr)}
 .side{display:flex;flex-direction:column;gap:var(--gap);min-height:0}
 .main{display:grid;gap:var(--gap);min-height:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-.scenes{grid-column:1/-1}
+.main.hasAlexa{grid-template-rows:auto auto minmax(0,1fr)}
+.scenes,.alexa{grid-column:1/-1}
 @media (orientation:portrait){
   body{overflow:auto}
   .home{height:auto;min-height:100vh;grid-template-columns:minmax(0,1fr)}
   .side{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
   .hero{grid-column:1/-1;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--gap);align-items:end}
   .music{grid-column:1/-1}
-  .main{grid-template-rows:auto auto}
+  .main,.main.hasAlexa{grid-template-rows:auto auto auto}
   .dev{min-height:520px}
 }
 
@@ -148,6 +149,34 @@ button{cursor:pointer}
 .scene i svg{position:absolute;inset:0;margin:auto;width:20px;height:20px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round}
 .scene b{font-weight:600;font-size:14.5px;padding-left:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scene.on{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+
+/* alexa buttons */
+.alexa{display:flex;flex-wrap:wrap;gap:8px;margin-top:calc(var(--gap) * -.4)}
+.ax{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:9px;min-width:0;border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 84%,transparent);
+  border-radius:999px;padding:6px 16px 6px 6px;text-align:left;transition:transform .1s,border-color .25s,background .25s;position:relative}
+.ax:active{transform:scale(.96)}
+.ax .ring{width:32px;height:32px;flex:none;border-radius:50%;display:grid;place-items:center;
+  box-shadow:inset 0 0 0 2px color-mix(in srgb,#00caff 70%,transparent);background:color-mix(in srgb,#00caff 10%,transparent)}
+.ax .ring svg{width:17px;height:17px;stroke:#7fe3ff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ax b{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ax.busy .ring{animation:axpulse .9s ease-in-out infinite}
+@keyframes axpulse{50%{box-shadow:inset 0 0 0 2px #00caff,0 0 14px #00caff}}
+.ax.done{border-color:#00caff}
+.ax.fail{border-color:var(--err)}
+.axList{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.axItem{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface2);border-radius:12px;padding:8px 8px 8px 12px}
+.axItem .ring{width:28px;height:28px;flex:none;border-radius:50%;display:grid;place-items:center;box-shadow:inset 0 0 0 2px color-mix(in srgb,#00caff 70%,transparent)}
+.axItem .ring svg{width:15px;height:15px;stroke:#7fe3ff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.axItem div{flex:1;min-width:0}.axItem small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.axItem button{border:0;background:none;color:var(--muted);padding:6px 7px;border-radius:8px;font-size:15px;line-height:1}
+.axItem button:active{background:var(--surface)}
+.axForm{display:grid;gap:8px;margin-top:12px;border:1px dashed var(--line);border-radius:14px;padding:12px}
+.axForm .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.axForm select{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+.icons{display:flex;flex-wrap:wrap;gap:6px}
+.icons button{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);display:grid;place-items:center;padding:0}
+.icons button.on{border-color:#00caff;background:color-mix(in srgb,#00caff 16%,var(--surface2))}
+.icons svg{width:18px;height:18px;stroke:var(--fg);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 
 /* light cards */
 .dev{--dc:#ff7a3d;display:flex;flex-direction:column;gap:14px;min-height:0;padding:16px}
@@ -320,6 +349,7 @@ button{cursor:pointer}
 
   <div class="main">
     <section class="scenes" id="scenes" aria-label="Scenes"></section>
+    <section class="alexa" id="alexa" aria-label="Alexa" hidden></section>
     <section class="card dev" id="dev-curtain"></section>
     <section class="card dev" id="dev-strip"></section>
   </div>
@@ -379,6 +409,29 @@ button{cursor:pointer}
       <div id="spIn" hidden>
         <p class="hint" style="margin-top:0" id="spWho">Connected to Spotify.</p>
         <div class="row" style="margin-top:10px"><button class="btn ghost sm" id="spLogout">Disconnect Spotify</button></div>
+      </div>
+    </div>
+
+    <div class="sec" id="axSec">
+      <h3>Alexa buttons</h3>
+      <p class="hint" style="margin-top:0">Buttons on the dashboard that run an Alexa Routine or make your Echos announce something. They go through Voice Monkey, a free Alexa skill:</p>
+      <div class="hint"><ol>
+        <li>Sign up at <span class="code">voicemonkey.io</span> and enable the Voice Monkey skill in the Alexa app.</li>
+        <li>In the Voice Monkey console, add a <b>Routine Trigger</b> for each button (or a <b>Speaker</b> for announcements) and copy its ID.</li>
+        <li>In the Alexa app, make a Routine. For <b>When this happens</b>, pick the Voice Monkey device and that trigger. Add any actions, such as <b>Customised</b>, where you type a command exactly as you'd say it.</li>
+        <li>Paste your Voice Monkey API token below, then add a button with the trigger's ID.</li>
+      </ol></div>
+      <div class="row" style="margin-top:12px;flex-wrap:nowrap"><input class="field" id="vmToken" type="password" placeholder="Voice Monkey API token" autocomplete="off" spellcheck="false"><button class="btn sm" id="vmSave">Save</button></div>
+      <div class="axList" id="axList"></div>
+      <div class="axForm" id="axForm">
+        <div class="two">
+          <input class="field" id="axLabel" placeholder="Button name, e.g. Heating on" maxlength="28" autocomplete="off">
+          <select id="axKind"><option value="trigger">Run a Routine</option><option value="announce">Announce</option></select>
+        </div>
+        <input class="field" id="axDevice" placeholder="Routine Trigger ID from Voice Monkey" autocomplete="off" spellcheck="false">
+        <input class="field" id="axSpeech" placeholder="What Alexa should say" hidden autocomplete="off">
+        <div class="icons" id="axIcons"></div>
+        <div class="row"><button class="btn sm" id="axAdd">Add button</button><button class="btn ghost sm" id="axTest">Test</button><button class="btn ghost sm" id="axCancel" hidden>Cancel</button></div>
       </div>
     </div>
 
@@ -834,6 +887,130 @@ async function runScene(sc){
 }
 
 // =====================================================================
+// Alexa buttons (Voice Monkey API v3: GET /trigger fires a Routine Trigger,
+// GET /announce speaks on a Speaker device)
+// =====================================================================
+const AX_ICONS = {
+  bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V17h5v-1.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>',
+  tv: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  heat: '<path d="M14 14.8V4a2 2 0 1 0-4 0v10.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/>',
+  fan: '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7 2 0 3 2 2 4l-4 4M14 12c4 0 7 1 7 4 0 2-2 3-4 2l-4-4M12 14c0 4-1 7-4 7-2 0-3-2-2-4l4-4M10 12c-4 0-7-1-7-4 0-2 2-3 4-2l4 4"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  speak: '<path d="M3 10v4h4l5 4V6L7 10z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/>',
+  food: '<path d="M4 3v8a3 3 0 0 0 6 0V3M7 3v18M17 3c-2 0-3 3-3 7h3v11"/>',
+  coffee: '<path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 11h1.5a2.5 2.5 0 0 1 0 5H17M8 3v3M12 3v3"/>',
+  plug: '<path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/>',
+  home: '<path d="M3 11 12 3l9 8M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>',
+};
+const axSvg = k => `<svg viewBox="0 0 24 24">${AX_ICONS[k] || AX_ICONS.home}</svg>`;
+const vmToken = () => ls.get('home.vm.token', '');
+let axButtons = ls.get('home.vm.buttons', null) || (DEMO ? [
+  {label: 'Heating on', icon: 'heat', kind: 'trigger', device: 'demo'}, {label: 'TV on', icon: 'tv', kind: 'trigger', device: 'demo'},
+  {label: 'Main lights off', icon: 'bulb', kind: 'trigger', device: 'demo'}, {label: 'Bedtime', icon: 'moon', kind: 'trigger', device: 'demo'},
+  {label: 'Dinner\'s ready', icon: 'food', kind: 'announce', device: 'demo', speech: 'Dinner is ready!'}, {label: 'Lock up', icon: 'lock', kind: 'trigger', device: 'demo'},
+] : []);
+const VM_ERRORS = {INVALID_TOKEN: 'Voice Monkey didn\'t accept the API token', UNAUTHORIZED: 'Add your Voice Monkey API token in Settings',
+  DEVICE_NOT_FOUND: 'Voice Monkey doesn\'t have that device ID', THROTTLED: 'Voice Monkey is rate-limiting. Try again shortly',
+  MONTHLY_QUOTA_EXCEEDED: 'This month\'s Voice Monkey allowance is used up', ALEXA_TRIGGER_FAILED: 'Alexa didn\'t respond. Try again'};
+async function vmCall(b){
+  if(DEMO){ await sleep(600); return; }
+  if(!vmToken()) throw new Error(VM_ERRORS.UNAUTHORIZED);
+  const q = {token: vmToken(), device: b.device}; if(b.kind === 'announce') q.speech = b.speech || b.label;
+  let r;
+  // A plain GET, so no preflight. If Voice Monkey's reply can't be read (CORS), the call was still made.
+  try{ r = await fetch(`https://api-v3.voicemonkey.io/${b.kind === 'announce' ? 'announce' : 'trigger'}?` + new URLSearchParams(q), {cache: 'no-store'}); }
+  catch(e){ if(navigator.onLine) return; throw new Error('No internet connection'); }
+  const j = await r.json().catch(() => null);
+  if(!r.ok || (j && j.success === false)) throw new Error((j && VM_ERRORS[j.error]) || (j && j.error) || 'Voice Monkey error ' + r.status);
+}
+function renderAlexa(){
+  const box = $('#alexa'); box.innerHTML = '';
+  box.hidden = !axButtons.length; $('.main').classList.toggle('hasAlexa', axButtons.length > 0);
+  axButtons.forEach(b => {
+    const el = document.createElement('button'); el.className = 'ax';
+    el.innerHTML = `<span class="ring">${axSvg(b.icon)}</span><b></b>`; el.children[1].textContent = b.label;
+    el.onclick = async () => {
+      if(el.classList.contains('busy')) return;
+      el.classList.remove('done', 'fail'); el.classList.add('busy');
+      try{ await vmCall(b); el.classList.add('done'); toast(b.kind === 'announce' ? 'Announcing on Alexa' : 'Sent to Alexa: ' + b.label); }
+      catch(e){ el.classList.add('fail'); toast(e.message, true); }
+      el.classList.remove('busy'); setTimeout(() => el.classList.remove('done', 'fail'), 1800);
+    };
+    box.appendChild(el);
+  });
+  renderAxList();
+  if(cards.curtain) sizeCurtain();
+}
+// editor in Settings
+let axEditing = -1, axIcon = 'bulb';
+function saveAx(){ ls.set('home.vm.buttons', axButtons); renderAlexa(); }
+function renderAxList(){
+  const list = $('#axList'); if(!list) return; list.innerHTML = '';
+  axButtons.forEach((b, i) => {
+    const it = document.createElement('div'); it.className = 'axItem';
+    it.innerHTML = `<span class="ring">${axSvg(b.icon)}</span><div><div></div><small></small></div>
+      <button aria-label="Move up">↑</button><button aria-label="Edit">✎</button><button aria-label="Delete">✕</button>`;
+    it.querySelector(':scope > div > div').textContent = b.label;
+    it.querySelector('small').textContent = (b.kind === 'announce' ? 'Says “' + (b.speech || b.label) + '”' : 'Routine') + ' · ' + b.device;
+    const [up, ed, del] = it.querySelectorAll('button');
+    up.disabled = i === 0;
+    up.onclick = () => { [axButtons[i - 1], axButtons[i]] = [axButtons[i], axButtons[i - 1]]; saveAx(); };
+    ed.onclick = () => axEdit(i);
+    del.onclick = () => { axButtons.splice(i, 1); if(axEditing === i) axReset(); saveAx(); };
+    list.appendChild(it);
+  });
+}
+function axFormValue(){
+  return {label: $('#axLabel').value.trim(), icon: axIcon, kind: $('#axKind').value, device: $('#axDevice').value.trim(), speech: $('#axSpeech').value.trim()};
+}
+function axCheck(b){
+  if(!b.label){ toast('Give the button a name', true); return false; }
+  if(!b.device){ toast('Paste the device ID from Voice Monkey', true); return false; }
+  if(b.kind === 'announce' && !b.speech){ toast('Add what Alexa should say', true); return false; }
+  return true;
+}
+function axKindChanged(){
+  const ann = $('#axKind').value === 'announce';
+  $('#axSpeech').hidden = !ann;
+  $('#axDevice').placeholder = ann ? 'Speaker ID from Voice Monkey' : 'Routine Trigger ID from Voice Monkey';
+}
+function renderAxIcons(){
+  const box = $('#axIcons'); box.innerHTML = '';
+  for(const k of Object.keys(AX_ICONS)){
+    const b = document.createElement('button'); b.type = 'button'; b.className = k === axIcon ? 'on' : ''; b.innerHTML = axSvg(k); b.setAttribute('aria-label', k);
+    b.onclick = () => { axIcon = k; renderAxIcons(); };
+    box.appendChild(b);
+  }
+}
+function axEdit(i){
+  const b = axButtons[i]; axEditing = i;
+  $('#axLabel').value = b.label; $('#axKind').value = b.kind; $('#axDevice').value = b.device; $('#axSpeech').value = b.speech || '';
+  axIcon = b.icon; renderAxIcons(); axKindChanged();
+  $('#axAdd').textContent = 'Save button'; $('#axCancel').hidden = false; $('#axLabel').focus();
+}
+function axReset(){
+  axEditing = -1; ['#axLabel', '#axDevice', '#axSpeech'].forEach(s => $(s).value = ''); $('#axKind').value = 'trigger';
+  axIcon = 'bulb'; renderAxIcons(); axKindChanged(); $('#axAdd').textContent = 'Add button'; $('#axCancel').hidden = true;
+}
+$('#axKind').onchange = axKindChanged;
+$('#axAdd').onclick = () => {
+  const b = axFormValue(); if(!axCheck(b)) return;
+  if(b.kind !== 'announce') delete b.speech;
+  if(axEditing >= 0) axButtons[axEditing] = b; else axButtons.push(b);
+  axReset(); saveAx(); toast('Button saved');
+};
+$('#axCancel').onclick = axReset;
+$('#axTest').onclick = async () => {
+  const b = axFormValue(); if(!axCheck(b)) return;
+  try{ await vmCall(b); toast('Sent. Did Alexa do it?'); }catch(e){ toast(e.message, true); }
+};
+$('#vmSave').onclick = () => { ls.set('home.vm.token', $('#vmToken').value.trim()); toast($('#vmToken').value.trim() ? 'Voice Monkey token saved' : 'Token removed'); };
+
+// =====================================================================
 // Clock
 // =====================================================================
 let lastMinute = -1;
@@ -1068,7 +1245,7 @@ async function openSpeakers(){
   for(const d of devs){
     const b = document.createElement('button'); b.className = d.is_active ? 'on' : '';
     b.innerHTML = devIcon(d.type) + '<div><div></div><small></small></div>';
-    b.querySelector('div div').textContent = d.name;
+    b.querySelector(':scope > div > div').textContent = d.name;
     b.querySelector('small').textContent = (d.is_active ? 'Playing here · ' : '') + (d.type || '').toLowerCase();
     b.onclick = async () => {
       closeSheets();
@@ -1297,7 +1474,7 @@ document.addEventListener('visibilitychange', () => {
 // =====================================================================
 // Settings
 // =====================================================================
-function openSheet(id){ $('#' + id).classList.add('show'); if(id === 'settings'){ renderLocNow(); renderSpSettings(); } }
+function openSheet(id){ $('#' + id).classList.add('show'); if(id === 'settings'){ renderLocNow(); renderSpSettings(); $('#vmToken').value = vmToken(); renderAxList(); } }
 function closeSheets(){ $$('.sheet').forEach(s => s.classList.remove('show')); }
 $$('.sheet').forEach(s => s.addEventListener('click', e => { if(e.target === s || e.target.closest('[data-close]')) closeSheets(); }));
 $('#gear').onclick = () => openSheet('settings');
@@ -1351,7 +1528,7 @@ function demoDevices(){
 // =====================================================================
 // Start
 // =====================================================================
-makeCard('curtain'); makeCard('strip'); buildScenes();
+makeCard('curtain'); makeCard('strip'); buildScenes(); renderAlexa(); axReset();
 render('curtain'); render('strip'); sizeCurtain();
 setFollow(follow);
 tick(true); setInterval(() => { tick(); progress(); }, 1000);
