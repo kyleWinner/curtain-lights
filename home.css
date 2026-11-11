@@ -116,9 +116,9 @@ body[data-view=lights] .glows{opacity:1}
 .camDot.seen{color:var(--ok)}
 
 /* ---------- lights ---------- */
-.lBody{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,36fr) minmax(0,64fr);gap:var(--gap);padding:6px var(--pad) var(--pad)}
+.lBody{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,31fr) minmax(0,69fr);gap:var(--gap);padding:6px var(--pad) var(--pad)}
 .lLeft{min-height:0;overflow:auto;padding-right:2px}
-.lCards{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--gap);min-height:0}
+.lCards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;min-height:0}
 .secLabel{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:4px 2px 10px}
 .secLabel.mt{margin-top:18px}
 .scenes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
@@ -142,7 +142,7 @@ body[data-view=lights] .glows{opacity:1}
 .ax.done{border-color:var(--ax)}.ax.fail{border-color:var(--err)}
 .axEmpty{color:var(--muted);font-size:13.5px;line-height:1.45;border:1px dashed var(--line);border-radius:14px;padding:12px 14px}
 
-.dev{--dc:#ff7a3d;display:flex;flex-direction:column;gap:13px;min-height:0;padding:16px}
+.dev{--dc:#ff7a3d;display:flex;flex-direction:column;gap:12px;min-height:0;padding:14px}
 .devHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .devHead h2{font-family:var(--display);font-size:21px;font-weight:700;margin:0;letter-spacing:-.02em;line-height:1.1}
 .status{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-top:3px}
@@ -173,7 +173,7 @@ body[data-view=lights] .glows{opacity:1}
   font-weight:600;font-size:14.5px;text-shadow:0 1px 3px rgba(0,0,0,.55);font-variant-numeric:tabular-nums}
 .range .lbl svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round}
 .range input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
-.sws{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;flex:none}
+.sws{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;flex:none}
 .sw{height:34px;border-radius:12px;border:2px solid transparent;padding:0;background:var(--s);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
 .sw.sel{border-color:var(--fg)}
 .devFoot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;min-height:38px}

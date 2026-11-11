@@ -143,6 +143,18 @@ function maskBytes(idxs, n){
   for(const i of idxs) if(i >= 0 && i < m.length * 8) m[i >> 3] |= 1 << (i & 7);
   return m;
 }
+// Third light: Zengge "BT SPI LED controller" (USB, ZJ-YBCUAS-HCQ2-1K). Same company and
+// Bluetooth framing as the curtain, so it reuses the curtain's commands. Its colour
+// command is picked with a test in Settings in case it differs from the curtain's.
+const usbSegs = () => clamp(ls.get('usb.segs', 20), 2, 60);
+const usbName = () => (ls.get('usb.name', '') || 'USB lights').trim();
+const withSum = arr => [...arr, arr.reduce((a, b) => a + b, 0) & 255];
+const USB_COLOUR = {
+  a1: (hh, s, v) => CURTAIN.colour(hh, s, v),
+  '3b': (hh, s, v) => { const hu = Math.round((((hh % 360) + 360) % 360)); return withSum([0x3b, 0xa1, hu >> 8, hu & 255, clamp(Math.round(s * 100), 0, 100), clamp(Math.round(v * 100), 0, 100), 0, 0, 0, 0, 0, 0]); },
+  '31': (hh, s, v) => { const [r, g, b] = hexToRgb(hsvToHex(hh, s, v)); return withSum([0x31, r, g, b, 0x00, 0xf0, 0x0f]); },
+};
+const usbColour = (hh, s, v) => (USB_COLOUR[ls.get('usb.method', 'a1')] || USB_COLOUR.a1)(hh, s, v);
 const curtainRows = () => { const rc = clamp(ls.get('curtain.rowCount', 30), 1, 33); return {rc, vis: clamp(ls.get('curtain.visRows', 20), 1, rc)}; };
 
 // =====================================================================
@@ -165,6 +177,8 @@ class Link {
     try{
       d = await navigator.bluetooth.requestDevice(showAll ? {acceptAllDevices: true, optionalServices: [this.svc]} : {filters: this.filters, optionalServices: [this.svc]});
     }catch(e){ if(e.name !== 'NotFoundError') toast(e.message, true); return; }
+    const other = Object.keys(links).find(k => k !== this.key && links[k].device && links[k].device.id === d.id);
+    if(other){ toast(`That's the ${links[other].label.toLowerCase()}. Pick the other one.`, true); return; }
     this.adopt(d); ls.set('home.' + this.key + '.id', d.id);
     await this.open();
   }
@@ -207,7 +221,8 @@ class Link {
     if(DEMO || !navigator.bluetooth || !navigator.bluetooth.getDevices) return;
     try{
       const id = ls.get('home.' + this.key + '.id', null), list = await navigator.bluetooth.getDevices();
-      const d = list.find(x => x.id === id) || list.find(x => this.match(x.name || ''));
+      const taken = Object.keys(links).filter(k => k !== this.key).map(k => ls.get('home.' + k + '.id', null));
+      const d = list.find(x => x.id === id) || list.find(x => !taken.includes(x.id) && this.match(x.name || ''));
       if(!d) return;
       this.adopt(d); this.wanted = true; this.open();
     }catch(e){}
@@ -236,6 +251,16 @@ const links = {
       try{ const n = await svc.getCharacteristic(0xff02); await n.startNotifications(); }catch(e){}
     },
     onOpen(){ this.send(CURTAIN.clock()); },
+  }),
+  usb: new Link({
+    key: 'usb', label: usbName(), svc: 0xffff, write: 0xff01, seq: 0,
+    filters: [{services: [0xffff]}, {namePrefix: 'IOTBT'}, {namePrefix: 'LEDnet'}],
+    match: () => false,   // looks like the curtain by name, so only reconnect by its saved ID
+    encode(b){ this.seq = (this.seq + 1) & 255; return CURTAIN.frame(this.seq, b); },
+    async setup(svc){
+      this.noResp = !this.char.properties.write; this.seq = 0;
+      try{ const n = await svc.getCharacteristic(0xff02); await n.startNotifications(); }catch(e){}
+    },
   }),
   strip: new Link({
     key: 'strip', label: 'Strip', svc: GV_SVC, write: GV_WRITE,
@@ -279,7 +304,10 @@ function loadLook(key, fallback){
 const L = {
   curtain: {on: ls.get('home.curtain.on', true), bright: ls.get('curtain.bright', 80), look: loadLook('curtain', '#ff7a3d')},
   strip: {on: ls.get('home.strip.on', true), bright: ls.get('strip.bright', 80), look: loadLook('strip', '#2a7cff')},
+  usb: {on: ls.get('home.usb.on', true), bright: ls.get('usb.bright', 80), look: loadLook('usb', '#ff2ad4')},
 };
+const usesZengge = key => key === 'curtain' || key === 'usb';
+const powerCmd = (key, on) => usesZengge(key) ? CURTAIN.power(on) : STRIP.power(on);
 function save(key){
   const s = L[key];
   ls.set('home.' + key + '.on', s.on); ls.set('home.' + key + '.look', s.look); ls.set(key + '.bright', s.bright);
@@ -300,6 +328,11 @@ async function pushLook(key){
     });
     return link.send(CURTAIN.smear(pts));
   }
+  if(key === 'usb'){
+    if(isSolid(s.look)){ const [hh, sat, v] = ledHsv(s.look[0]); return link.send(usbColour(hh, sat, v * b)); }
+    const n = usbSegs();
+    return link.send(CURTAIN.smear(Array.from({length: n}, (_, i) => { const [hh, sat, v] = ledHsv(lookAt(s.look, i / (n - 1), i)); return [hh, sat, v * b]; })));
+  }
   const n = segCount(), m = stripMethod();
   const frame = Array.from({length: n}, (_, i) => stripRgb(lookAt(s.look, n > 1 ? i / (n - 1) : 0, i)));
   if(!m.segs) return link.send(m.fn(frame[0]));
@@ -311,6 +344,7 @@ async function pushLook(key){
 }
 const pushBright = {
   curtain: throttle(() => pushLook('curtain'), 250),
+  usb: throttle(() => pushLook('usb'), 250),
   strip: throttle(() => links.strip.send(STRIP.bright(L.strip.bright)), 150),
 };
 async function applyLight(key, {look, bright} = {}){
@@ -319,7 +353,7 @@ async function applyLight(key, {look, bright} = {}){
   if(bright !== undefined) s.bright = bright;
   const wasOff = !s.on; s.on = true; save(key); render(key);
   if(!link.on) return false;
-  if(wasOff || key === 'strip') await link.send(key === 'curtain' ? CURTAIN.power(true) : STRIP.power(true));
+  if(wasOff || key === 'strip') await link.send(powerCmd(key, true));
   const ok = await pushLook(key);
   if(key === 'strip') await link.send(STRIP.bright(s.bright));
   return ok;
@@ -328,7 +362,7 @@ async function setPower(key, on){
   const s = L[key], link = links[key];
   s.on = on; save(key); render(key);
   if(!link.on) return false;
-  await link.send(key === 'curtain' ? CURTAIN.power(on) : STRIP.power(on));
+  await link.send(powerCmd(key, on));
   if(on){ await pushLook(key); if(key === 'strip') await link.send(STRIP.bright(s.bright)); }
   return true;
 }
@@ -346,7 +380,7 @@ function makeCard(key){
   const el = $('#dev-' + key), link = links[key];
   el.innerHTML = `
     <div class="devHead">
-      <div style="min-width:0"><h2>${link.label}</h2><div class="status"><span class="dot"></span><span class="stext"></span></div></div>
+      <div style="min-width:0"><h2 class="devName">${link.label}</h2><div class="status"><span class="dot"></span><span class="stext"></span></div></div>
       <button class="switch" role="switch" aria-checked="false" aria-label="${link.label} power"><i></i></button>
     </div>
     <div class="stage">${key === 'curtain'
@@ -357,7 +391,7 @@ function makeCard(key){
         <input type="range" min="5" max="100" aria-label="${link.label} brightness"></div>
       <div class="sws"></div>
     </div>
-    <div class="devFoot"><button class="btn sm connect">Connect</button><a class="more" href="${key === 'curtain' ? './' : 'strip.html'}">Full remote ›</a></div>`;
+    <div class="devFoot"><button class="btn sm connect">Connect</button>${key === 'usb' ? '' : `<a class="more" href="${key === 'curtain' ? './' : 'strip.html'}">Full remote ›</a>`}</div>`;
   const c = {el, stage: $('.stage', el), sw: $('.switch', el), range: $('input[type=range]', el), fill: $('.fill', el), pct: $('.pct', el),
     stext: $('.stext', el), connect: $('.connect', el), note: $('.offNote', el), grid: $('.grid', el), bar: $('.bar', el), wash: $('.wash', el), swatches: []};
   for(const [hex, name] of SWATCHES){
@@ -412,14 +446,16 @@ function render(key){
     const {vis} = curtainRows();
     $$('.cell', c.grid).forEach(d => { const r = +d.dataset.r; d.style.setProperty('--c', dim(lookAt(s.look, vis > 1 ? r / (vis - 1) : 0, r), b)); });
   }else{
-    const n = segCount();
+    const n = key === 'usb' ? usbSegs() : segCount();
     if(c.bar.childElementCount !== n){ c.bar.innerHTML = ''; for(let i = 0; i < n; i++) c.bar.appendChild(h('i')); }
     Array.from(c.bar.children).forEach((d, i) => d.style.setProperty('--c', dim(lookAt(s.look, n > 1 ? i / (n - 1) : 0, i), b)));
     c.wash.style.setProperty('--wash', lookCss(s.look)); c.wash.style.setProperty('--wo', String(0.25 + 0.5 * b));
   }
-  const root = document.documentElement.style;
-  root.setProperty(key === 'curtain' ? '--c1' : '--c2', mid);
-  root.setProperty(key === 'curtain' ? '--o1' : '--o2', lit ? String(0.45 + 0.55 * b) : '0');
+  if(key !== 'usb'){
+    const root = document.documentElement.style;
+    root.setProperty(key === 'curtain' ? '--c1' : '--c2', mid);
+    root.setProperty(key === 'curtain' ? '--o1' : '--o2', lit ? String(0.45 + 0.55 * b) : '0');
+  }
   renderHomeTiles();
 }
 
@@ -459,11 +495,11 @@ function markScene(id){ ls.set('home.scene', id); $$('.scene').forEach(b => b.cl
 function clearScene(){ markScene(null); }
 async function runScene(sc){
   const skipped = Object.keys(links).filter(k => !links[k].on).map(k => links[k].label);
-  if(skipped.length === 2){ toast('Connect your lights first', true); return; }
+  if(skipped.length === Object.keys(links).length){ toast('Connect your lights first', true); return; }
   markScene(sc.id); setFollow(false);
   await Promise.all(Object.keys(links).filter(k => links[k].on).map(k =>
-    sc.off ? setPower(k, false) : applyLight(k, {look: sc[k], bright: sc.bright})));
-  if(skipped.length) toast(`${skipped[0]} isn't connected, so it was left alone`);
+    sc.off ? setPower(k, false) : applyLight(k, {look: sc[k] || sc.strip, bright: sc.bright})));
+  if(skipped.length) toast(`${skipped.join(' and ')} ${skipped.length > 1 ? 'aren\'t' : 'isn\'t'} connected, so ${skipped.length > 1 ? 'they were' : 'it was'} left alone`);
 }
 function renderHomeTiles(){
   const el = $('#tLights'); if(!el) return;
@@ -544,7 +580,8 @@ function renderAlexa(){
 }
 let axEditing = -1, axIcon = 'bulb';
 const axTimers = {};
-const LIGHT_ACTIONS = [['curtain:on', 'Curtain on'], ['curtain:off', 'Curtain off'], ['strip:on', 'Strip on'], ['strip:off', 'Strip off']];
+const LIGHT_ACTIONS = [['curtain:on', 'Curtain on'], ['curtain:off', 'Curtain off'], ['strip:on', 'Strip on'], ['strip:off', 'Strip off'],
+  ['usb:on', usbName() + ' on'], ['usb:off', usbName() + ' off']];
 // A button's light part: a scene id, or 'curtain:on' style for one light.
 function axAction(id){
   if(!id) return null;
@@ -1044,6 +1081,7 @@ function followAlbum(){
   const p = SP.palette, strip = p.length === 1 ? p : [...p, ...p.slice(0, -1).reverse()];
   if(links.curtain.on) applyLight('curtain', {look: p.slice()});
   if(links.strip.on) applyLight('strip', {look: strip});
+  if(links.usb.on) applyLight('usb', {look: strip});
 }
 
 // ---------- music browser ----------
@@ -1648,6 +1686,26 @@ function bindSettings(){
   // lights
   $('#pairCurtain').onclick = () => { closeSheets(); links.curtain.choose(false); };
   $('#pairStrip').onclick = () => { closeSheets(); links.strip.choose(false); };
+  $('#pairUsb').onclick = () => { closeSheets(); links.usb.choose(false); };
+  $('#usbName').value = ls.get('usb.name', '');
+  $('#usbName').addEventListener('input', debounce(e => {
+    ls.set('usb.name', e.target.value.trim()); links.usb.label = usbName();
+    $('#dev-usb .devName').textContent = usbName(); $('#pairUsb').textContent = 'Pair the ' + usbName().toLowerCase(); renderHomeTiles();
+  }, 300));
+  $('#pairUsb').textContent = 'Pair the ' + usbName().toLowerCase();
+  $('#usbSegs').value = String(usbSegs());
+  $('#usbSegs').onchange = e => { ls.set('usb.segs', clamp(+e.target.value || 20, 2, 60)); e.target.value = usbSegs(); render('usb'); if(links.usb.on && L.usb.on) pushLook('usb'); };
+  // colour test: each button tries one colour command (red); the one that works is kept
+  $$('#usbTests button').forEach(b => {
+    b.classList.toggle('on', b.dataset.m === ls.get('usb.method', 'a1'));
+    b.onclick = async () => {
+      if(!needLink('usb')) return;
+      ls.set('usb.method', b.dataset.m); $$('#usbTests button').forEach(x => x.classList.toggle('on', x === b));
+      await links.usb.send(CURTAIN.power(true));
+      await links.usb.send(usbColour(0, 1, 1));
+      toast(`Sent red using test ${b.textContent}. If the lights went red, you're set.`);
+    };
+  });
   $('#flagHint').hidden = !navigator.bluetooth || !!navigator.bluetooth.getDevices;
   // landing + music + calendar controls
   $('#gnBtn').onclick = goodnight;
@@ -1770,9 +1828,9 @@ function demoCalApi(action, data){
 // Start
 // =====================================================================
 applyBg();
-makeCard('curtain'); makeCard('strip'); buildScenes(); renderAlexa(); axReset();
+makeCard('curtain'); makeCard('strip'); makeCard('usb'); buildScenes(); renderAlexa(); axReset();
 bindSettings(); setFollow(follow);
-render('curtain'); render('strip');
+render('curtain'); render('strip'); render('usb');
 $('#oMotion').setAttribute('aria-checked', String(ls.get('home.motion', false))); $('#motionBox').hidden = !ls.get('home.motion', false);
 { const t = new Date(); CAL.month = new Date(t.getFullYear(), t.getMonth(), 1); CAL.sel = dayStart(t);
   const cached = ls.get('home.cal.cache', null); if(cached && !DEMO){ CAL.events = cached.map(parseEvent).filter(evShown).sort(byStart); } }
@@ -1782,7 +1840,7 @@ renderGn(); loadWeather();
 spReturn().finally(spPoll);
 if(calReady()) calLoad();
 setInterval(() => { if(calReady()) calLoad(); }, 10 * 60000);
-links.curtain.restore(); links.strip.restore();
+links.curtain.restore(); links.strip.restore(); links.usb.restore();
 wake(); motionStart();
 window.addEventListener('resize', debounce(() => { if(view === 'calendar') renderCal(); }, 200));
 if('serviceWorker' in navigator && !DEMO) navigator.serviceWorker.register('sw.js').catch(() => {});
