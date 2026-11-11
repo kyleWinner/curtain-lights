@@ -155,6 +155,14 @@ const USB_COLOUR = {
   '31': (hh, s, v) => { const [r, g, b] = hexToRgb(hsvToHex(hh, s, v)); return withSum([0x31, r, g, b, 0x00, 0xf0, 0x0f]); },
 };
 const usbColour = (hh, s, v) => (USB_COLOUR[ls.get('usb.method', 'a1')] || USB_COLOUR.a1)(hh, s, v);
+// Colour order fix. 'grb' means: what the tablet sends as red shows as green, as green shows as red, as blue shows as blue.
+// To show a wanted colour, send each channel the value of the colour it actually lights up as.
+const usbOrder = () => /^(?=.*r)(?=.*g)(?=.*b)[rgb]{3}$/.test(ls.get('usb.order', 'rgb')) ? ls.get('usb.order', 'rgb') : 'rgb';
+function usbFix(hex){
+  const o = usbOrder(); if(o === 'rgb') return hex;
+  const [r, g, b] = hexToRgb(hex), want = {r, g, b};
+  return rgbToHex([want[o[0]], want[o[1]], want[o[2]]]);
+}
 const curtainRows = () => { const rc = clamp(ls.get('curtain.rowCount', 30), 1, 33); return {rc, vis: clamp(ls.get('curtain.visRows', 20), 1, rc)}; };
 
 // =====================================================================
@@ -329,9 +337,9 @@ async function pushLook(key){
     return link.send(CURTAIN.smear(pts));
   }
   if(key === 'usb'){
-    if(isSolid(s.look)){ const [hh, sat, v] = ledHsv(s.look[0]); return link.send(usbColour(hh, sat, v * b)); }
+    if(isSolid(s.look)){ const [hh, sat, v] = ledHsv(usbFix(s.look[0])); return link.send(usbColour(hh, sat, v * b)); }
     const n = usbSegs();
-    return link.send(CURTAIN.smear(Array.from({length: n}, (_, i) => { const [hh, sat, v] = ledHsv(lookAt(s.look, i / (n - 1), i)); return [hh, sat, v * b]; })));
+    return link.send(CURTAIN.smear(Array.from({length: n}, (_, i) => { const [hh, sat, v] = ledHsv(usbFix(lookAt(s.look, i / (n - 1), i))); return [hh, sat, v * b]; })));
   }
   const n = segCount(), m = stripMethod();
   const frame = Array.from({length: n}, (_, i) => stripRgb(lookAt(s.look, n > 1 ? i / (n - 1) : 0, i)));
@@ -1695,17 +1703,28 @@ function bindSettings(){
   $('#pairUsb').textContent = 'Pair the ' + usbName();
   $('#usbSegs').value = String(usbSegs());
   $('#usbSegs').onchange = e => { ls.set('usb.segs', clamp(+e.target.value || 20, 2, 60)); e.target.value = usbSegs(); render('usb'); if(links.usb.on && L.usb.on) pushLook('usb'); };
-  // colour test: each button tries one colour command (red); the one that works is kept
-  $$('#usbTests button').forEach(b => {
-    b.classList.toggle('on', b.dataset.m === ls.get('usb.method', 'a1'));
-    b.onclick = async () => {
-      if(!needLink('usb')) return;
-      ls.set('usb.method', b.dataset.m); $$('#usbTests button').forEach(x => x.classList.toggle('on', x === b));
-      await links.usb.send(CURTAIN.power(true));
-      await links.usb.send(usbColour(0, 1, 1));
-      toast(`Sent red using test ${b.textContent}. If the lights went red, you're set.`);
-    };
+  // colour check: show red, ask what it looks like, then green; work out the channel order from the two answers
+  const ucBox = $('#usbCheck'), ucQ = $('#usbCheckQ'), ucStatus = () => { $('#usbOrderNow').textContent = usbOrder() === 'rgb' ? 'Not corrected' : 'Corrected (' + usbOrder().toUpperCase() + ')'; };
+  let ucStep = 0, ucFirst = null;
+  const sendRaw = hex => { const [hh, sat, v] = rgbToHsv(...hexToRgb(hex)); return links.usb.send(usbColour(hh, sat, v)); };
+  $('#usbCheckStart').onclick = async () => {
+    if(!needLink('usb')) return;
+    ucStep = 1; ucFirst = null; ucBox.hidden = false; ucQ.textContent = 'The lights should now be one colour. Which colour are they?';
+    await links.usb.send(CURTAIN.power(true)); await sendRaw('#ff0000');
+  };
+  $$('#usbCheck [data-c]').forEach(btn => btn.onclick = async () => {
+    const c = btn.dataset.c;
+    if(ucStep === 1){ ucFirst = c; ucStep = 2; ucQ.textContent = 'And which colour are they now?'; await sendRaw('#00ff00'); return; }
+    if(ucStep === 2){
+      if(c === ucFirst){ toast('Those two answers match, so let\'s try again', true); ucStep = 0; ucBox.hidden = true; return; }
+      const third = 'rgb'.replace(ucFirst, '').replace(c, '');
+      ls.set('usb.order', ucFirst + c + third); ucStep = 0; ucBox.hidden = true; ucStatus();
+      toast('Colours corrected. Tap red on the card to check.'); if(L.usb.on) pushLook('usb');
+    }
   });
+  $('#usbCheckReset').onclick = () => { ls.set('usb.order', 'rgb'); ucStatus(); if(links.usb.on && L.usb.on) pushLook('usb'); toast('Colour correction removed'); };
+  ucStatus();
+  if(ls.get('usb.method', 'a1') !== 'a1') ls.set('usb.method', 'a1');   // A is the command that works on this controller
   $('#flagHint').hidden = !navigator.bluetooth || !!navigator.bluetooth.getDevices;
   // landing + music + calendar controls
   $('#gnBtn').onclick = goodnight;

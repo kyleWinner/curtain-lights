@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="home.css?v=6">
+<link rel="stylesheet" href="home.css?v=7">
 </head>
 <body data-view="home">
 <div class="bgImg" aria-hidden="true"></div><div class="bgShade" aria-hidden="true"></div>
@@ -276,8 +276,13 @@
       <label class="opt">Name <input class="field" id="usbName" style="max-width:190px" maxlength="20" autocomplete="off" placeholder="USB lights"></label>
       <label class="opt">Segments for gradients <input class="field" id="usbSegs" type="number" min="2" max="60" style="max-width:90px"></label>
       <p class="hint" style="margin-top:4px">When pairing, the list may show the curtain too (they're the same make). The controller is the one that isn't the curtain's name; if you pick the curtain by mistake it'll tell you.</p>
-      <div class="opt">Colour test <div class="seg" id="usbTests" style="max-width:220px"><button data-m="a1">A</button><button data-m="3b">B</button><button data-m="31">C</button></div></div>
-      <p class="hint" style="margin-top:4px">Once it's connected, tap A. If the lights turn red, you're done. If not, try B, then C. The one you tap last is kept.</p>
+      <div class="opt">Colour check <span class="muted" id="usbOrderNow" style="font-size:13px"></span></div>
+      <div class="row"><button class="btn ghost sm" id="usbCheckStart">Check colours</button><button class="btn ghost sm" id="usbCheckReset">Reset</button></div>
+      <div id="usbCheck" hidden style="margin-top:10px">
+        <p class="hint" id="usbCheckQ" style="margin-top:0"></p>
+        <div class="seg" style="margin-top:8px"><button data-c="r"><i style="--ec:#ff2a2a"></i>Red</button><button data-c="g"><i style="--ec:#22ff66"></i>Green</button><button data-c="b"><i style="--ec:#2a7cff"></i>Blue</button></div>
+      </div>
+      <p class="hint" style="margin-top:6px">If colours on these lights come out wrong (red shows as green, for example), tap Check colours and answer the two questions. Every colour sent to them is then corrected.</p>
       <p class="hint">Each light takes one Bluetooth connection at a time, so while this screen is connected your phone can't be.</p>
       <p class="hint" id="flagHint" hidden>To reconnect by itself after the page reloads, open <span class="code">chrome://flags</span>, search for <b>Web Bluetooth new permissions backend</b>, turn it on and restart Chrome.</p>
     </div>
@@ -311,6 +316,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script src="home.js?v=6"></script>
+<script src="home.js?v=7"></script>
 </body>
 </html>
