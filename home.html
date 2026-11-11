@@ -244,6 +244,13 @@ button{cursor:pointer}
 .devs svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .devs small{display:block;color:var(--muted);font-size:12px}
 
+.meter{position:relative;height:10px;border-radius:5px;background:var(--surface2);border:1px solid var(--line);margin:10px 0 2px}
+.meter i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:5px;background:var(--ok);transition:width .2s}
+.meter b{position:absolute;top:-5px;bottom:-5px;width:2px;border-radius:1px;background:var(--fg);left:16%}
+.tools{display:flex;gap:8px;align-items:center}
+.camDot{width:42px;height:42px;display:grid;place-items:center;color:var(--muted)}
+.camDot svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.camDot.seen{color:var(--ok)}
 #toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,12px);opacity:0;pointer-events:none;z-index:40;background:#262c3c;
   border:1px solid var(--line);padding:11px 18px;border-radius:12px;font-size:14.5px;transition:all .22s;max-width:calc(100vw - 32px);box-shadow:0 10px 30px rgba(0,0,0,.45)}
 #toast.show{opacity:1;transform:translate(-50%,0)}
@@ -261,7 +268,8 @@ button{cursor:pointer}
         <div class="greet" id="greet">Hello</div>
         <div class="clock" aria-live="off"><span id="hh">00</span><span class="colon">:</span><span id="mm">00</span><span class="ampm" id="ampm"></span></div>
         <div class="dateRow"><div class="date" id="date"></div>
-          <button class="icon" id="gear" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+          <div class="tools"><span class="camDot" id="camDot" hidden title="Walk-up wake is watching for movement with the front camera"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <button class="icon" id="gear" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
         </div>
       </div>
       <div class="card weather" id="weather">
@@ -338,6 +346,14 @@ button{cursor:pointer}
       <label class="opt">Switch to the clock after
         <select id="oDim"><option value="0">Never</option><option value="1">1 minute</option><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="15">15 minutes</option></select></label>
       <p class="hint">When idle, the screen goes black with a dim clock, or the album art if music is playing. Tap anywhere to come back.</p>
+      <label class="opt" style="margin-top:10px">Wake when someone walks up <button class="switch" id="oMotion" role="switch" aria-checked="false" style="--dc:#4ade80"><i></i></button></label>
+      <div id="motionBox" hidden>
+        <label class="opt">Sensitivity
+          <select id="oSens"><option value="low">Low</option><option value="med">Medium</option><option value="high">High</option></select></label>
+        <div class="meter" aria-hidden="true"><i id="motionLevel"></i><b id="motionMark"></b></div>
+        <p class="hint">Wave in front of the tablet: the green bar should cross the white line. Use Low if it wakes when nobody's there.</p>
+      </div>
+      <p class="hint">Walk-up wake watches the front camera for movement. Frames are only compared on the tablet, never saved or sent anywhere, and the eye icon by the clock shows when it's on. It needs a bit of light to see.</p>
     </div>
 
     <div class="sec">
@@ -1209,13 +1225,74 @@ function renderAmbient(){
 function nudgeAmbient(){ $('#aIn').style.transform = `translate(${(Math.random() * 4 - 2).toFixed(2)}vw, ${(Math.random() * 4 - 2).toFixed(2)}vh)`; }
 document.addEventListener('pointerdown', () => { if($('#ambient').classList.contains('show')) hideAmbient(); bump(); wake(); }, true);
 
+// Walk-up wake: compare tiny greyscale frames from the front camera 4 times a
+// second. Whole-frame brightness shifts (auto-exposure, the lights changing)
+// are cancelled out; two moving frames in a row count as someone there.
+const MOTION_SENS = {low: 0.06, med: 0.025, high: 0.01};
+const motion = {stream: null, video: null, ctx: null, prev: null, timer: null, hits: 0, level: 0};
+async function motionStart(){
+  if(DEMO || motion.stream || !ls.get('home.motion', false) || document.visibilityState !== 'visible') return;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast('This browser can\'t use the camera', true); setMotion(false); return; }
+  try{
+    motion.stream = await navigator.mediaDevices.getUserMedia({audio: false,
+      video: {facingMode: 'user', width: {ideal: 160}, height: {ideal: 120}, frameRate: {ideal: 8, max: 15}}});
+  }catch(e){ toast('Camera access was blocked, so walk-up wake is off', true); setMotion(false); return; }
+  if(!ls.get('home.motion', false) || document.visibilityState !== 'visible'){ motionStop(); return; }
+  if(!motion.video){ motion.video = document.createElement('video'); motion.video.muted = true; motion.video.setAttribute('playsinline', ''); }
+  motion.video.srcObject = motion.stream;
+  try{ await motion.video.play(); }catch(e){}
+  if(!motion.ctx){ const c = document.createElement('canvas'); c.width = 48; c.height = 36; motion.ctx = c.getContext('2d', {willReadFrequently: true}); }
+  motion.prev = null; motion.hits = 0;
+  clearInterval(motion.timer); motion.timer = setInterval(motionTick, 250);
+  $('#camDot').hidden = false;
+}
+function motionStop(){
+  clearInterval(motion.timer); motion.timer = null;
+  if(motion.stream){ motion.stream.getTracks().forEach(t => t.stop()); motion.stream = null; }
+  if(motion.video) motion.video.srcObject = null;
+  motion.prev = null; $('#camDot').hidden = true;
+}
+function motionTick(){
+  const v = motion.video; if(!v || v.readyState < 2) return;
+  const W = 48, H = 36, n = W * H;
+  motion.ctx.drawImage(v, 0, 0, W, H);
+  const d = motion.ctx.getImageData(0, 0, W, H).data, px = new Float32Array(n);
+  let mean = 0;
+  for(let i = 0, j = 0; j < n; i += 4, j++){ px[j] = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114; mean += px[j]; }
+  mean /= n;
+  const prev = motion.prev; motion.prev = {px, mean};
+  if(!prev) return;
+  const shift = mean - prev.mean; let changed = 0;
+  for(let j = 0; j < n; j++) if(Math.abs(px[j] - prev.px[j] - shift) > 22) changed++;
+  motion.level = changed / n; renderMeter();
+  motion.hits = motion.level > (MOTION_SENS[ls.get('home.sens', 'med')] || 0.025) ? motion.hits + 1 : 0;
+  if(motion.hits >= 2){ motion.hits = 0; onMotion(); }
+}
+function onMotion(){
+  if($('#ambient').classList.contains('show')) hideAmbient();
+  bump();
+  const dot = $('#camDot'); dot.classList.add('seen'); clearTimeout(onMotion.t); onMotion.t = setTimeout(() => dot.classList.remove('seen'), 1500);
+}
+function renderMeter(){
+  if(!$('#settings').classList.contains('show')) return;
+  const top = 0.15, th = MOTION_SENS[ls.get('home.sens', 'med')] || 0.025;
+  $('#motionLevel').style.width = Math.min(100, motion.level / top * 100) + '%';
+  $('#motionMark').style.left = (th / top * 100) + '%';
+}
+function setMotion(on){
+  ls.set('home.motion', on); $('#oMotion').setAttribute('aria-checked', String(on)); $('#motionBox').hidden = !on;
+  if(on) motionStart(); else motionStop();
+}
+
 // keep the screen on (Screen Wake Lock; the tablet should also be on charge)
 let wl = null;
 async function wake(){
   if(!ls.get('home.awake', true) || !('wakeLock' in navigator) || document.visibilityState !== 'visible' || wl) return;
   try{ wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); }catch(e){}
 }
-document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible'){ wake(); tick(true); spPoll(); } });
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible'){ wake(); tick(true); spPoll(); motionStart(); } else motionStop();
+});
 
 // =====================================================================
 // Settings
@@ -1234,6 +1311,9 @@ bindSwitch($('#o24'), 'home.h24', true, () => { tick(true); const j = ls.get('ho
 bindSwitch($('#oAwake'), 'home.awake', true, v => { if(v) wake(); else if(wl){ wl.release(); wl = null; } });
 $('#oDim').value = String(ls.get('home.dim', 2));
 $('#oDim').onchange = e => { ls.set('home.dim', +e.target.value); bump(); };
+$('#oMotion').onclick = e => { e.preventDefault(); setMotion(!ls.get('home.motion', false)); };
+$('#oSens').value = ls.get('home.sens', 'med');
+$('#oSens').onchange = e => { ls.set('home.sens', e.target.value); renderMeter(); };
 $('#useLoc').onclick = () => askLocation(false);
 $('#citySearch').onclick = searchCity;
 $('#cityIn').addEventListener('keydown', e => { if(e.key === 'Enter') searchCity(); });
@@ -1279,6 +1359,8 @@ loadWeather();
 spReturn().finally(spPoll);
 links.curtain.restore(); links.strip.restore();
 bump(); wake();
+$('#oMotion').setAttribute('aria-checked', String(ls.get('home.motion', false))); $('#motionBox').hidden = !ls.get('home.motion', false);
+motionStart();
 if('serviceWorker' in navigator && !DEMO) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
