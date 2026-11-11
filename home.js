@@ -493,7 +493,7 @@ const AX_ICONS = {
 const axSvg = k => `<svg viewBox="0 0 24 24">${AX_ICONS[k] || AX_ICONS.home}</svg>`;
 const vmToken = () => ls.get('home.vm.token', '');
 let axButtons = ls.get('home.vm.buttons', null) || (DEMO ? [
-  {label: 'Heating on', icon: 'heat', kind: 'trigger', device: 'demo'}, {label: 'TV on', icon: 'tv', kind: 'trigger', device: 'demo'},
+  {label: 'Heating on', icon: 'heat', kind: 'trigger', device: 'demo'}, {label: 'Movie time', icon: 'tv', kind: 'trigger', device: 'demo', scene: 'movie'},
   {label: 'Main lights off', icon: 'bulb', kind: 'trigger', device: 'demo'}, {label: 'Dinner\'s ready', icon: 'food', kind: 'announce', device: 'demo', speech: 'Dinner is ready!'},
   {label: 'Lock up', icon: 'lock', kind: 'trigger', device: 'demo'},
 ] : []);
@@ -521,8 +521,21 @@ function renderAlexa(){
     el.onclick = async () => {
       if(el.classList.contains('busy')) return;
       el.classList.remove('done', 'fail'); el.classList.add('busy');
-      try{ await vmCall(b); el.classList.add('done'); toast(b.kind === 'announce' ? 'Announcing on Alexa' : 'Sent to Alexa: ' + b.label); }
-      catch(e){ el.classList.add('fail'); toast(e.message, true); }
+      let ok = true, msg = [];
+      if(b.device){
+        try{ await vmCall(b); msg.push(b.kind === 'announce' ? 'Alexa announcing' : 'Alexa routine sent'); }
+        catch(e){ ok = false; toast(e.message, true); }
+      }
+      // The light part runs even if Alexa failed, so the lights still do their bit.
+      const act = axAction(b.scene);
+      if(act){
+        const mins = +b.delay || 0;
+        clearTimeout(axTimers[b.label]);
+        if(mins){ axTimers[b.label] = setTimeout(act.run, mins * 60000); msg.push(`${act.done} in ${mins} min`); }
+        else{ act.run(); msg.push(act.done); }
+      }
+      el.classList.add(ok ? 'done' : 'fail');
+      if(ok && msg.length){ const t = msg.join(', '); toast(t.charAt(0).toUpperCase() + t.slice(1)); }
       el.classList.remove('busy'); setTimeout(() => el.classList.remove('done', 'fail'), 1800);
     };
     box.appendChild(el);
@@ -530,6 +543,17 @@ function renderAlexa(){
   renderAxList();
 }
 let axEditing = -1, axIcon = 'bulb';
+const axTimers = {};
+const LIGHT_ACTIONS = [['curtain:on', 'Curtain on'], ['curtain:off', 'Curtain off'], ['strip:on', 'Strip on'], ['strip:off', 'Strip off']];
+// A button's light part: a scene id, or 'curtain:on' style for one light.
+function axAction(id){
+  if(!id) return null;
+  const sc = SCENES.find(x => x.id === id);
+  if(sc) return {name: sc.name, done: 'lights set to ' + sc.name, run: () => runScene(sc)};
+  const la = LIGHT_ACTIONS.find(([k]) => k === id); if(!la) return null;
+  const [key, state] = id.split(':');
+  return {name: la[1], done: la[1].toLowerCase().replace(' on', ' switched on').replace(' off', ' switched off'), run: () => { if(!needLink(key)) return; clearScene(); setPower(key, state === 'on'); }};
+}
 function saveAx(){ ls.set('home.vm.buttons', axButtons); renderAlexa(); }
 function renderAxList(){
   const list = $('#axList'); if(!list) return; list.innerHTML = '';
@@ -540,16 +564,25 @@ function renderAxList(){
     ed.onclick = () => axEdit(i);
     del.onclick = () => { axButtons.splice(i, 1); if(axEditing === i) axReset(); saveAx(); };
     list.appendChild(h('div', {class: 'axItem'}, h('span', {class: 'ring', html: axSvg(b.icon)}),
-      h('div', null, h('div', null, b.label), h('small', null, (b.kind === 'announce' ? 'Says “' + (b.speech || b.label) + '”' : 'Routine') + ' · ' + b.device)),
+      h('div', null, h('div', null, b.label), h('small', null, axSummary(b))),
       up, ed, del));
   });
 }
+function axSummary(b){
+  const parts = [];
+  if(b.device) parts.push((b.kind === 'announce' ? 'Says “' + (b.speech || b.label) + '”' : 'Routine') + ' · ' + b.device);
+  const act = axAction(b.scene);
+  if(act) parts.push((b.device ? 'then ' : 'Lights: ') + act.name + (+b.delay ? ` after ${b.delay} min` : ''));
+  return parts.join(' · ');
+}
 function axFormValue(){
-  return {label: $('#axLabel').value.trim(), icon: axIcon, kind: $('#axKind').value, device: $('#axDevice').value.trim(), speech: $('#axSpeech').value.trim()};
+  return {label: $('#axLabel').value.trim(), icon: axIcon, kind: $('#axKind').value, device: $('#axDevice').value.trim(), speech: $('#axSpeech').value.trim(),
+    scene: $('#axScene').value, delay: $('#axScene').value ? +$('#axDelay').value : 0};
 }
 function axCheck(b){
   if(!b.label){ toast('Give the button a name', true); return false; }
-  if(!b.device){ toast('Paste the device ID from Voice Monkey', true); return false; }
+  if(!b.device && !b.scene){ toast('Paste the device ID from Voice Monkey, or pick a lights scene', true); return false; }
+  if(b.kind === 'announce' && !b.device){ toast('Paste the Speaker ID from Voice Monkey', true); return false; }
   if(b.kind === 'announce' && !b.speech){ toast('Add what Alexa should say', true); return false; }
   return true;
 }
@@ -569,11 +602,13 @@ function renderAxIcons(){
 function axEdit(i){
   const b = axButtons[i]; axEditing = i;
   $('#axLabel').value = b.label; $('#axKind').value = b.kind; $('#axDevice').value = b.device; $('#axSpeech').value = b.speech || '';
+  $('#axScene').value = b.scene || ''; $('#axDelay').value = String(b.delay || 0); $('#axDelay').hidden = !b.scene;
   axIcon = b.icon; renderAxIcons(); axKindChanged();
   $('#axAdd').textContent = 'Save button'; $('#axCancel').hidden = false; $('#axLabel').focus();
 }
 function axReset(){
   axEditing = -1; ['#axLabel', '#axDevice', '#axSpeech'].forEach(s => $(s).value = ''); $('#axKind').value = 'trigger';
+  $('#axScene').value = ''; $('#axDelay').value = '0'; $('#axDelay').hidden = true;
   axIcon = 'bulb'; renderAxIcons(); axKindChanged(); $('#axAdd').textContent = 'Add button'; $('#axCancel').hidden = true;
 }
 
@@ -1595,11 +1630,21 @@ function bindSettings(){
   $('#axAdd').onclick = () => {
     const b = axFormValue(); if(!axCheck(b)) return;
     if(b.kind !== 'announce') delete b.speech;
+    if(!b.scene){ delete b.scene; delete b.delay; }
     if(axEditing >= 0) axButtons[axEditing] = b; else axButtons.push(b);
     axReset(); saveAx(); toast('Button saved');
   };
   $('#axCancel').onclick = axReset;
-  $('#axTest').onclick = async () => { const b = axFormValue(); if(!axCheck(b)) return; try{ await vmCall(b); toast('Sent. Did Alexa do it?'); }catch(e){ toast(e.message, true); } };
+  $('#axTest').onclick = async () => {
+    const b = axFormValue(); if(!axCheck(b)) return;
+    if(!b.device){ toast('Nothing to test with Alexa. The lights part runs when you tap the button.'); return; }
+    try{ await vmCall(b); toast('Sent. Did Alexa do it?'); }catch(e){ toast(e.message, true); }
+  };
+  const scGroup = h('optgroup', {label: 'Scene on both lights'}), oneGroup = h('optgroup', {label: 'One light'});
+  for(const sc of SCENES) scGroup.appendChild(h('option', {value: sc.id}, 'Then: ' + sc.name));
+  for(const [k, name] of LIGHT_ACTIONS) oneGroup.appendChild(h('option', {value: k}, 'Then: ' + name));
+  $('#axScene').append(scGroup, oneGroup);
+  $('#axScene').onchange = e => { $('#axDelay').hidden = !e.target.value; };
   // lights
   $('#pairCurtain').onclick = () => { closeSheets(); links.curtain.choose(false); };
   $('#pairStrip').onclick = () => { closeSheets(); links.strip.choose(false); };

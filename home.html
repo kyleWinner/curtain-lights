@@ -241,6 +241,7 @@
         <li>In the Voice Monkey console, add a <b>Routine Trigger</b> for each button (or a <b>Speaker</b> for announcements) and copy its ID.</li>
         <li>In the Alexa app, make a Routine. For <b>When this happens</b>, pick the Voice Monkey device and that trigger, then add the actions.</li>
       </ol></div>
+      <p class="hint">A button can also switch the curtain and strip to a scene after Alexa runs, or only do the lights if you leave the ID empty.</p>
       <div class="row" style="margin-top:12px;flex-wrap:nowrap"><input class="field" id="vmToken" type="password" placeholder="Voice Monkey API token" autocomplete="off" spellcheck="false"><button class="btn sm" id="vmSave">Save</button></div>
 
       <div style="margin-top:16px;font-weight:600">Goodnight</div>
@@ -258,6 +259,10 @@
         </div>
         <input class="field" id="axDevice" placeholder="Routine Trigger ID from Voice Monkey" autocomplete="off" spellcheck="false">
         <input class="field" id="axSpeech" placeholder="What Alexa should say" hidden autocomplete="off">
+        <div class="two">
+          <select id="axScene" aria-label="Then with the lights"><option value="">Lights: leave as they are</option></select>
+          <select id="axDelay" aria-label="When" hidden><option value="0">Straight away</option><option value="1">After 1 minute</option><option value="2">After 2 minutes</option><option value="5">After 5 minutes</option><option value="10">After 10 minutes</option><option value="15">After 15 minutes</option></select>
+        </div>
         <div class="icons" id="axIcons"></div>
         <div class="row"><button class="btn sm" id="axAdd">Add button</button><button class="btn ghost sm" id="axTest">Test</button><button class="btn ghost sm" id="axCancel" hidden>Cancel</button></div>
       </div>
