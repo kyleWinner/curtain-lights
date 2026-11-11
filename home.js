@@ -396,6 +396,7 @@ const pushBright = {
   strip: throttle(() => links.strip.send(STRIP.bright(L.strip.bright)), 150),
 };
 async function applyLight(key, {look, bright} = {}){
+  if(FX.name) stopFx(true);
   const s = L[key], link = links[key];
   if(look !== undefined) s.look = look;
   if(bright !== undefined) s.bright = bright;
@@ -407,6 +408,7 @@ async function applyLight(key, {look, bright} = {}){
   return ok;
 }
 async function setPower(key, on){
+  if(FX.name) stopFx(true);
   const s = L[key], link = links[key];
   s.on = on; save(key); render(key);
   if(!link.on) return false;
@@ -451,7 +453,7 @@ function makeCard(key){
   c.sw.onclick = () => { if(!needLink(key)) return; clearScene(); setPower(key, !L[key].on); };
   c.range.addEventListener('input', e => {
     L[key].bright = +e.target.value; save(key); render(key);
-    if(links[key].on && L[key].on) pushBright[key]();
+    if(links[key].on && L[key].on && !FX.name) pushBright[key]();
   });
   c.connect.onclick = () => link.device ? link.open() : link.choose(false);
   cards[key] = c;
@@ -552,7 +554,211 @@ async function runScene(sc){
 function renderHomeTiles(){
   const el = $('#tLights'); if(!el) return;
   const parts = Object.keys(links).filter(k => links[k].on).map(k => `${links[k].label} ${L[k].on ? 'on' : 'off'}`);
+  if(FX.name && FX_MAP[FX.name]){ el.textContent = FX_MAP[FX.name].name + ' effect'; return; }
   el.textContent = parts.length ? parts.join(' · ') : (navigator.bluetooth || DEMO ? 'Tap to connect' : 'Needs Chrome on Android');
+}
+
+// =====================================================================
+// Effects: animated from the tablet, like the remotes. Each tick works out a
+// colour per light and sends it as one colour command; newest frame wins.
+// =====================================================================
+const smooth = x => x * x * (3 - 2 * x);
+function hueMix(a, b, f){ const d = ((b - a + 540) % 360) - 180; return (a + d * f + 360) % 360; }
+function hueWalk(list, P, t){ const i = Math.floor(t / P), f = smooth((t / P) % 1); return hueMix(list[i % list.length], list[(i + 1) % list.length], f); }
+function flicker(st, t, k, hueBase, hueWob, sat){
+  if(!st.next || t > st.next){ st.target = 0.35 + Math.random() * 0.65; st.next = t + (0.05 + Math.random() * 0.25) / k; }
+  if(st.v === undefined) st.v = 0.8;
+  st.v += (st.target - st.v) * 0.45;
+  return [hueBase + Math.sin(t * 3) * hueWob, sat, st.v];
+}
+// spread: each light runs a little behind the last, so colour moves across the room
+const FX_LIST = [
+  {id: 'rainbow', name: 'Rainbow', spread: true, g: 'linear-gradient(90deg,#ff3b3b,#ffd23b,#3bff6a,#3bd5ff,#6a3bff,#ff3bd2,#ff3b3b)',
+    fn: (t, k) => [(t * k * 30) % 360, 1, 1]},
+  {id: 'fade', name: 'Colour fade', spread: true, g: 'linear-gradient(90deg,#ff3b3b,#ff9a3b,#3bff9a,#3b8cff,#b43bff,#ff3b3b)',
+    fn: (t, k) => [hueWalk([0, 25, 50, 120, 185, 220, 270, 315], 4 / k, t), 1, 1]},
+  {id: 'breathe', name: 'Breathe', g: 'linear-gradient(90deg,#000,#ffb066,#000)',
+    fn: (t, k, st) => [st.base[0], st.base[1], st.base[2] * (0.06 + 0.94 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t * k / 4)))]},
+  {id: 'candle', name: 'Candlelight', g: 'linear-gradient(90deg,#ff7a1a,#ffb347,#ff8a2a,#ffc266,#ff7a1a)',
+    fn: (t, k, st) => flicker(st, t, k, 26, 4, 0.9)},
+  {id: 'sunset', name: 'Sunset', spread: true, g: 'linear-gradient(90deg,#ff8a1a,#ff4d6d,#b14dff,#ff4d6d,#ff8a1a)',
+    fn: (t, k) => [hueWalk([28, 350, 290, 350], 6 / k, t), 1, 0.9]},
+  {id: 'aurora', name: 'Aurora', spread: true, g: 'linear-gradient(90deg,#22ff9a,#00d5ff,#7a2aff,#00d5ff,#22ff9a)',
+    fn: (t, k) => [hueWalk([140, 175, 200, 275, 200], 5 / k, t), 0.9, 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(t * k * 0.9))]},
+  {id: 'ocean', name: 'Ocean', spread: true, g: 'linear-gradient(90deg,#00e5ff,#2a7cff,#1a3aff,#2a7cff,#00e5ff)',
+    fn: (t, k) => [205 + 22 * Math.sin(t * k * 0.5), 1, 0.55 + 0.45 * Math.pow(0.5 + 0.5 * Math.sin(t * k * 1.3), 1.5)]},
+  {id: 'storm', name: 'Storm', g: 'linear-gradient(90deg,#1c0638 0 40%,#fff 45%,#1c0638 50% 70%,#e8e0ff 74%,#1c0638 78%)',
+    fn: (t, k, st) => {
+      if(st.strike === undefined) st.strike = t + 1 + Math.random() * 2;
+      const d = t - st.strike;
+      if(d > 1.4){ st.strike = t + (2 + Math.random() * 6) / k; st.double = Math.random() < 0.6; }
+      if(d >= 0 && d < 0.07) return [260, 0.05, 1];
+      if(st.double && d >= 0.16 && d < 0.26) return [250, 0.1, 0.9];
+      if(d >= 0.26 && d < 1.4) return [270, 0.6, Math.max(0.1, 0.7 * (1 - d / 1.4))];
+      return [262, 1, 0.12 + 0.03 * Math.sin(t * 0.7)];
+    }},
+  {id: 'police', name: 'Red & blue', g: 'linear-gradient(90deg,#ff2a2a 0 50%,#2a5bff 50% 100%)',
+    fn: (t, k, st) => { const ph = (t * k * 1.5 + st.idx * 0.5) % 1; return ph < 0.5 ? [0, 1, ph < 0.4 ? 1 : 0] : [225, 1, ph < 0.9 ? 1 : 0]; }},
+  {id: 'strobe', name: 'Strobe', g: 'linear-gradient(90deg,#fff 0 25%,#000 25% 50%,#fff 50% 75%,#000 75% 100%)',
+    fn: (t, k, st) => [st.base[0], st.base[1], (t * k * 2.5) % 1 < 0.5 ? st.base[2] : 0]},
+  {id: 'music', name: 'Music', g: 'linear-gradient(90deg,#3bd5ff,#6a3bff,#ff3bd2,#ffd23b,#3bd5ff)',
+    fn: (t, k, st) => {
+      if(!fxAudio) return [0, 0, 0];
+      const lvl = fxMic.level, avg = fxMic.avg;
+      const v = Math.pow(clamp(lvl / (avg * 1.9 + 0.002), 0, 1), 1.4);
+      st.hue = ((st.hue ?? (200 + st.idx * 90)) + 0.4 * k) % 360;
+      if(fxMic.beat && st.lastBeat !== fxMic.beat){ st.lastBeat = fxMic.beat; st.hue = (st.hue + 50 + Math.random() * 80) % 360; }
+      return [st.hue, 1, Math.max(0.04, v)];
+    }},
+  // ---- Christmas ----
+  {id: 'twinkle', group: 'Christmas', name: 'Twinkle', spread: true, g: 'linear-gradient(90deg,#ff1a1a,#22ff44,#ff1a1a,#22ff44)',
+    fn: (t, k) => { const P = 3 / k, ph = (t / P) % 2, f = smooth(ph % 1); return ph < 1 ? [0, 1, 1 - f * 0.9] : [125, 1, 0.1 + f * 0.9]; }},
+  {id: 'xmasfade', group: 'Christmas', name: 'Red & green', spread: true, g: 'linear-gradient(90deg,#ff1a1a,#ffd9a0,#22ff44,#ffd9a0,#ff1a1a)',
+    fn: (t, k) => { const f = 0.5 - 0.5 * Math.cos(t * k * 0.8); return f < 0.5 ? [0, 1 - f * 1.6, 1] : [125, (f - 0.5) * 1.6 + 0.2, 1]; }},
+  {id: 'cane', group: 'Christmas', name: 'Candy cane', g: 'linear-gradient(90deg,#ff1a1a 0 25%,#fff 25% 50%,#ff1a1a 50% 75%,#fff 75%)',
+    fn: (t, k, st) => ((t * k * 0.8 + st.idx * 0.5) % 1) < 0.5 ? [0, 1, 1] : [0, 0, 0.9]},
+  {id: 'snow', group: 'Christmas', name: 'Snowfall', g: 'linear-gradient(90deg,#6f8cff,#e8f0ff,#9fb6ff,#fff,#6f8cff)',
+    fn: (t, k, st) => {
+      if(!st.next || t > st.next){ st.target = Math.random() < 0.25 ? 1 : 0.35 + Math.random() * 0.3; st.next = t + (0.2 + Math.random() * 0.6) / k; }
+      st.v = (st.v ?? 0.5) + (st.target - (st.v ?? 0.5)) * 0.2;
+      return [215, 0.12 + (1 - st.v) * 0.35, st.v];
+    }},
+  {id: 'fireside', group: 'Christmas', name: 'Fireside', g: 'linear-gradient(90deg,#c81800,#ff5a00,#ffb000,#ff5a00,#c81800)',
+    fn: (t, k, st) => flicker(st, t, k * 1.3, 16, 8, 1)},
+];
+const FX_MAP = Object.fromEntries(FX_LIST.map(f => [f.id, f]));
+const FX = {name: null, timer: null, start: 0, st: {}, last: {}, pend: {}, busy: {}, targets: [], lastPreview: 0};
+let fxSpeed = ls.get('home.fx.speed', 50), fxBright = ls.get('home.fx.bright', 100);
+const fxLights = () => ls.get('home.fx.lights', {});
+const fxWants = k => fxLights()[k] !== false;
+// Music: the tablet's microphone
+let fxAudio = null; const fxMic = {level: 0, avg: 0.02, beat: 0};
+async function fxStartMic(){
+  const stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+  const ctx = new (window.AudioContext || window.webkitAudioContext)(), an = ctx.createAnalyser(); an.fftSize = 1024;
+  ctx.createMediaStreamSource(stream).connect(an);
+  fxAudio = {stream, ctx, an, buf: new Float32Array(an.fftSize)};
+}
+function fxStopMic(){ if(!fxAudio) return; fxAudio.stream.getTracks().forEach(tr => tr.stop()); try{ fxAudio.ctx.close(); }catch(e){} fxAudio = null; }
+function fxReadMic(t){
+  if(!fxAudio) return;
+  fxAudio.an.getFloatTimeDomainData(fxAudio.buf);
+  let s2 = 0; for(const x of fxAudio.buf) s2 += x * x;
+  fxMic.level = Math.sqrt(s2 / fxAudio.buf.length);
+  fxMic.avg = fxMic.avg * 0.96 + fxMic.level * 0.04;
+  if(fxMic.level > fxMic.avg * 1.7 && t - (fxMic.beatAt || 0) > 0.2){ fxMic.beatAt = t; fxMic.beat++; }
+}
+async function startFx(id){
+  const targets = Object.keys(links).filter(k => links[k].on && fxWants(k));
+  if(!targets.length){ toast(Object.keys(links).some(k => links[k].on) ? 'Pick at least one light to run it on' : 'Connect your lights first', true); return; }
+  if(FX.name) stopFx(true);
+  if(id === 'music'){
+    try{ await fxStartMic(); }catch(e){ toast('Music needs the microphone. Allow it for this site in Chrome and try again.', true); return; }
+  }
+  clearScene(); setFollow(false);
+  FX.name = id; FX.start = performance.now(); FX.st = {}; FX.last = {}; FX.pend = {}; FX.targets = targets;
+  targets.forEach((k, i) => {
+    const [hh, sat, v] = rgbToHsv(...hexToRgb(lookMid(L[k].look)));
+    FX.st[k] = {idx: i, base: [hh, sat, Math.max(v, 0.6)]};
+    if(!L[k].on){ L[k].on = true; save(k); render(k); }
+    links[k].send(powerCmd(k, true));
+    if(k === 'strip') links.strip.send(STRIP.bright(100));
+  });
+  clearInterval(FX.timer); FX.timer = setInterval(fxTick, 70);
+  renderFx(); renderHomeTiles();
+}
+// silent: something else is about to set the lights, so don't put the old colours back
+function stopFx(silent){
+  if(!FX.name) return;
+  clearInterval(FX.timer); FX.timer = null;
+  const was = FX.targets; FX.name = null; FX.pend = {};
+  fxStopMic(); renderFx(); renderHomeTiles();
+  for(const k of was){
+    render(k);
+    if(!silent && links[k].on && L[k].on){ pushLook(k); if(k === 'strip') links.strip.send(STRIP.bright(L.strip.bright)); }
+  }
+}
+function fxCmd(k, hh, s, v){
+  if(k === 'curtain') return CURTAIN.colour(hh, s, v);
+  if(k === 'usb'){ const [h2, s2] = rgbToHsv(...hexToRgb(usbFix(hsvToHex(hh, s, 1)))); return usbColour(h2, s2, v); }
+  const rgb = stripRgb(hsvToHex(hh, s, v)), m = stripMethod(), n = segCount();
+  return m.segs ? m.fn(rgb, maskBytes(Array.from({length: n}, (_, i) => i), n)) : m.fn(rgb);
+}
+async function fxPump(k){
+  FX.busy[k] = true;
+  while(FX.pend[k]){ const c = FX.pend[k]; FX.pend[k] = null; await links[k].send(c); }
+  FX.busy[k] = false;
+}
+function fxTick(){
+  const fx = FX_MAP[FX.name]; if(!fx){ stopFx(true); return; }
+  const now = performance.now(), t = (now - FX.start) / 1000, sp = 0.2 + (fxSpeed / 100) * 2.8;
+  if(FX.name === 'music') fxReadMic(t);
+  const preview = now - FX.lastPreview > 200; if(preview) FX.lastPreview = now;
+  let live = 0;
+  for(const k of FX.targets){
+    if(!links[k].on) continue; live++;
+    const st = FX.st[k], off = fx.spread ? st.idx * 1.4 / sp : 0;
+    const [hh, s, v0] = fx.fn(t + off, sp, st), v = clamp(v0, 0, 1) * fxBright / 100;
+    if(preview) fxPreview(k, hsvToHex(hh, s, Math.max(v, 0.08)));
+    const key = `${Math.round(hh)},${Math.round(s * 100)},${Math.round(v * 100)}`;
+    if(FX.last[k] === key) continue;
+    FX.last[k] = key; FX.pend[k] = fxCmd(k, hh, s, v);
+    if(!FX.busy[k]) fxPump(k);
+  }
+  if(!live) stopFx(true);
+}
+// the light cards show what the effect is doing
+function fxPreview(k, hex){
+  const c = cards[k]; if(!c) return;
+  c.el.style.setProperty('--dc', hex);
+  if(k === 'curtain') $$('.cell', c.grid).forEach(d => d.style.setProperty('--c', hex));
+  else { Array.from(c.bar.children).forEach(d => d.style.setProperty('--c', hex)); c.wash.style.setProperty('--wash', hex); }
+  c.stext.textContent = 'Effect · ' + FX_MAP[FX.name].name;
+}
+function buildFx(){
+  const grid = $('#fxGrid'); grid.innerHTML = '';
+  let group = null;
+  for(const fx of FX_LIST){
+    if((fx.group || '') !== group){ group = fx.group || ''; if(group) grid.appendChild(h('div', {class: 'secLabel fxHead'}, group)); }
+    const i = h('i'); i.style.setProperty('--g', fx.g);
+    const b = h('button', {class: 'scene fxTile', onclick: () => FX.name === fx.id ? stopFx(false) : startFx(fx.id)}, i, h('b', null, fx.name));
+    b.dataset.fx = fx.id; grid.appendChild(b);
+  }
+  const chips = $('#fxOn'); chips.innerHTML = '';
+  for(const k of Object.keys(links)){
+    const b = h('button', {class: 'lchip'}, h('i'), links[k].label);
+    b.dataset.k = k;
+    b.onclick = () => {
+      const m = Object.assign({}, fxLights()); m[k] = !fxWants(k); ls.set('home.fx.lights', m); renderFx();
+      if(FX.name){ const id = FX.name; stopFx(false); if(Object.keys(links).some(x => links[x].on && fxWants(x))) startFx(id); }
+    };
+    chips.appendChild(b);
+  }
+  const bindRange = (sel, get, set, fmt) => {
+    const r = $(sel + ' input'), fill = $(sel + ' .fill'), out = $(sel + ' .pct');
+    const show = () => { r.value = get(); fill.style.width = ((get() - r.min) / (r.max - r.min) * 100) + '%'; out.textContent = fmt(get()); };
+    r.addEventListener('input', () => { set(+r.value); show(); }); show();
+  };
+  bindRange('#fxSpeedR', () => fxSpeed, v => {
+    // keep the animation's position continuous when the speed changes
+    const now = performance.now(), kOld = 0.2 + (fxSpeed / 100) * 2.8, kNew = 0.2 + (v / 100) * 2.8;
+    if(FX.name) FX.start = now - (now - FX.start) * kOld / kNew;
+    fxSpeed = v; ls.set('home.fx.speed', v);
+  }, v => v < 25 ? 'Slow' : v < 70 ? 'Medium' : 'Fast');
+  bindRange('#fxBrightR', () => fxBright, v => { fxBright = v; ls.set('home.fx.bright', v); }, v => v + '%');
+  $('#fxStop').onclick = () => stopFx(false);
+  renderFx();
+}
+function renderFx(){
+  $$('.fxTile').forEach(b => b.classList.toggle('on', b.dataset.fx === FX.name));
+  $$('#fxOn .lchip').forEach(b => { b.classList.toggle('on', fxWants(b.dataset.k)); b.classList.toggle('off', !links[b.dataset.k].on); });
+  $('#fxStop').hidden = !FX.name;
+  $('#lTabs [data-t=effects]').classList.toggle('live', !!FX.name);
+}
+function showLightsTab(t){
+  ls.set('home.lightsTab', t);
+  $$('#lTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  $('#scenesPane').hidden = t !== 'scenes'; $('#fxPane').hidden = t !== 'effects';
 }
 
 // =====================================================================
@@ -712,7 +918,7 @@ function gnTick(){
   if(!GN.until) return;
   if(Date.now() < GN.until){ renderGn(); return; }
   GN.until = 0; ls.set('home.gn.until', 0); renderGn();
-  clearScene(); setFollow(false);
+  stopFx(true); clearScene(); setFollow(false);
   const missed = Object.keys(links).filter(k => !links[k].on);
   Object.keys(links).forEach(k => setPower(k, false));
   if(missed.length) toast(`Couldn't reach the ${missed.map(k => links[k].label.toLowerCase()).join(' or ')} to switch it off`, true);
@@ -1899,7 +2105,8 @@ function demoCalApi(action, data){
 // Start
 // =====================================================================
 applyBg();
-makeCard('curtain'); makeCard('strip'); makeCard('usb'); buildScenes(); renderAlexa(); axReset();
+makeCard('curtain'); makeCard('strip'); makeCard('usb');
+buildFx(); $$('#lTabs button').forEach(b => { b.onclick = () => showLightsTab(b.dataset.t); }); showLightsTab(ls.get('home.lightsTab', 'scenes')); buildScenes(); renderAlexa(); axReset();
 bindSettings(); setFollow(follow);
 render('curtain'); render('strip'); render('usb');
 $('#oMotion').setAttribute('aria-checked', String(ls.get('home.motion', false))); $('#motionBox').hidden = !ls.get('home.motion', false);

@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="home.css?v=8">
+<link rel="stylesheet" href="home.css?v=9">
 </head>
 <body data-view="home">
 <div class="bgImg" aria-hidden="true"></div><div class="bgShade" aria-hidden="true"></div>
@@ -72,8 +72,17 @@
     </header>
     <div class="lBody">
       <div class="lLeft">
-        <div class="secLabel">Scenes</div>
-        <div class="scenes" id="scenes"></div>
+        <div class="seg lTabs" id="lTabs"><button data-t="scenes">Scenes</button><button data-t="effects">Effects</button></div>
+        <div id="scenesPane"><div class="scenes" id="scenes"></div></div>
+        <div id="fxPane" hidden>
+          <div class="fxOn" id="fxOn"></div>
+          <div class="scenes" id="fxGrid"></div>
+          <div class="fxCtl">
+            <div class="range" id="fxSpeedR" style="--dc:#8e96aa"><div class="fill"></div><div class="lbl"><span>Speed</span><span class="pct"></span></div><input type="range" min="1" max="100" aria-label="Effect speed"></div>
+            <div class="range" id="fxBrightR" style="--dc:#8e96aa"><div class="fill"></div><div class="lbl"><span>Brightness</span><span class="pct"></span></div><input type="range" min="5" max="100" aria-label="Effect brightness"></div>
+          </div>
+          <button class="btn sm wide" id="fxStop" hidden style="margin-top:10px">Stop effect</button>
+        </div>
         <div class="secLabel mt">Alexa</div>
         <div class="alexa" id="alexa"></div>
       </div>
@@ -319,6 +328,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script src="home.js?v=8"></script>
+<script src="home.js?v=9"></script>
 </body>
 </html>

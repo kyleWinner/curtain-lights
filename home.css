@@ -129,6 +129,20 @@ body[data-view=lights] .glows{opacity:1}
 .scene i svg{position:absolute;inset:0;margin:auto;width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round}
 .scene b{font-weight:600;font-size:13.5px;padding-left:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scene.on{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+.lTabs{margin:0 0 12px}
+.lTabs button.live::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 6px var(--ok);margin-left:2px}
+.fxOn{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.lchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface2);border-radius:999px;padding:6px 11px;font-size:12.5px;color:var(--muted)}
+.lchip i{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.lchip.on{color:var(--fg);border-color:color-mix(in srgb,var(--fg) 40%,var(--line))}
+.lchip.on i{background:var(--ok)}
+.lchip.off{opacity:.5}
+.fxHead{grid-column:1/-1;margin:6px 2px 0}
+.fxTile b{font-size:12.5px;letter-spacing:-.15px;padding-left:0}
+.fxTile.on i{background-size:200% 100%;animation:fxpan 2.4s linear infinite}
+@keyframes fxpan{to{background-position:200% 0}}
+.fxCtl{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.fxCtl .range{height:40px}
 .alexa{display:flex;flex-wrap:wrap;gap:8px}
 .ax{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:9px;min-width:0;border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 84%,transparent);
   border-radius:999px;padding:6px 16px 6px 6px;text-align:left;transition:transform .1s,border-color .25s}
@@ -436,6 +450,7 @@ textarea.field{resize:none;min-height:64px}
 
 /* ---------- portrait ---------- */
 @media (orientation:portrait){
+  .lTabs{max-width:360px}
   .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
   .hWx{min-width:0}
   .lBody{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
