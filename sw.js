@@ -2,7 +2,7 @@
 // still open if the Wi-Fi drops (Bluetooth control doesn't need the internet).
 // Other sites (weather, Spotify, fonts) are never cached here.
 const CACHE = 'home-v3';
-const CORE = ['./home.html', './home.css?v=7', './home.js?v=7', './img/home-bg.jpg', './', './strip.html', './manifest.webmanifest', './icons/icon-192.png'];
+const CORE = ['./home.html', './home.css?v=8', './home.js?v=8', './img/home-bg.jpg', './', './strip.html', './manifest.webmanifest', './icons/icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).catch(() => {}).then(() => self.skipWaiting()));
 });

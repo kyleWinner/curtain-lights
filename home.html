@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="home.css?v=7">
+<link rel="stylesheet" href="home.css?v=8">
 </head>
 <body data-view="home">
 <div class="bgImg" aria-hidden="true"></div><div class="bgShade" aria-hidden="true"></div>
@@ -274,7 +274,10 @@
       <div class="row"><button class="btn ghost sm" id="pairCurtain">Pair the curtain</button><button class="btn ghost sm" id="pairStrip">Pair the strip</button><button class="btn ghost sm" id="pairUsb">Pair the USB lights</button></div>
       <div style="margin-top:16px;font-weight:600">USB lights (Zengge BT SPI controller)</div>
       <label class="opt">Name <input class="field" id="usbName" style="max-width:190px" maxlength="20" autocomplete="off" placeholder="USB lights"></label>
-      <label class="opt">Segments for gradients <input class="field" id="usbSegs" type="number" min="2" max="60" style="max-width:90px"></label>
+      <label class="opt">LEDs <input class="field" id="usbSegs" type="number" min="2" max="600" style="max-width:90px"></label>
+      <p class="hint" style="margin-top:2px">Same as "Number of IC light per segment" in the ZENGGE app.</p>
+      <div class="opt">Full-length test <div class="seg" id="usbFrag" style="max-width:250px"><button data-v="A">1</button><button data-v="B">2</button><button data-v="C">3</button><button data-v="D">4</button><button data-v="E">5</button></div></div>
+      <p class="hint" style="margin-top:4px">Each button sends a rainbow along all the LEDs, split up a different way. Tap 1. If one rainbow runs from start to end with nothing dark, you're done. If not, try 2, then 3, and so on. The one you tap last is kept.</p>
       <p class="hint" style="margin-top:4px">When pairing, the list may show the curtain too (they're the same make). The controller is the one that isn't the curtain's name; if you pick the curtain by mistake it'll tell you.</p>
       <div class="opt">Colour check <span class="muted" id="usbOrderNow" style="font-size:13px"></span></div>
       <div class="row"><button class="btn ghost sm" id="usbCheckStart">Check colours</button><button class="btn ghost sm" id="usbCheckReset">Reset</button></div>
@@ -316,6 +319,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script src="home.js?v=7"></script>
+<script src="home.js?v=8"></script>
 </body>
 </html>

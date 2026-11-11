@@ -146,7 +146,31 @@ function maskBytes(idxs, n){
 // Third light: Zengge "BT SPI LED controller" (USB, ZJ-YBCUAS-HCQ2-1K). Same company and
 // Bluetooth framing as the curtain, so it reuses the curtain's commands. Its colour
 // command is picked with a test in Settings in case it differs from the curtain's.
-const usbSegs = () => clamp(ls.get('usb.segs', 20), 2, 60);
+// LEDs the gradient command paints: the "Number of IC light per segment" in the ZENGGE app.
+const usbSegs = () => clamp(ls.get('usb.leds', 200), 2, 600);
+// One Zengge message carries at most 254 bytes (the length is one byte), which is 49 LEDs of the
+// gradient command. Longer ones are sent in pieces flagged 0x40, the last piece flagged 0x80
+// (from community notes on the protocol). Exactly how the pieces are labelled isn't documented,
+// so these are the five candidates the Settings test tries; the one that works is kept.
+const FRAG_DATA = 200;
+function usbFrames(seq, payload, variant){
+  const n = payload.length;
+  if(n + 1 <= 255) return [CURTAIN.frame(seq, payload)];
+  if(variant === 'E'){   // one ordinary header with the full 16-bit length, bytes simply split across writes
+    const all = Uint8Array.from([0x00, seq, 0x80, 0x00, n >> 8, n & 255, (n + 1) & 255, 0x0a, ...payload]), out = [];
+    for(let i = 0; i < all.length; i += 240) out.push(all.slice(i, i + 240));
+    return out;
+  }
+  const six = variant === 'B' || variant === 'D', zeroBased = variant === 'C' || variant === 'D';
+  const out = [], first = payload.slice(0, FRAG_DATA - 1);
+  out.push(Uint8Array.from([0x40, seq, 0x00, 0x00, n >> 8, n & 255, first.length + 1, 0x0a, ...first]));
+  let k = 1;
+  for(let i = first.length; i < n; i += FRAG_DATA, k++){
+    const part = payload.slice(i, i + FRAG_DATA), last = i + FRAG_DATA >= n, idx = zeroBased ? k - 1 : k;
+    out.push(Uint8Array.from([0x40, seq, (last ? 0x80 : 0) | ((idx >> 8) & 0x7f), idx & 255, part.length, ...(six ? [0x00] : []), ...part]));
+  }
+  return out;
+}
 const usbName = () => (ls.get('usb.name', '') || 'USB lights').trim();
 const withSum = arr => [...arr, arr.reduce((a, b) => a + b, 0) & 255];
 const USB_COLOUR = {
@@ -234,6 +258,21 @@ class Link {
       if(!d) return;
       this.adopt(d); this.wanted = true; this.open();
     }catch(e){}
+  }
+  nextSeq(){ this.seq = ((this.seq || 0) + 1) & 255; return this.seq; }
+  // several writes as one job, so nothing else lands between the pieces of a split message
+  sendFrames(frames){
+    if(DEMO){ window.lastFrames = frames; return Promise.resolve(true); }
+    if(!this.on) return Promise.resolve(false);
+    const job = this.queue.then(async () => {
+      for(const f of frames){
+        if(!this.on) return false;
+        if(this.noResp) await this.char.writeValueWithoutResponse(f); else await this.char.writeValueWithResponse(f);
+      }
+      return true;
+    }).catch(e => { console.warn(this.key, e); return false; });
+    this.queue = job;
+    return job;
   }
   send(bytes){
     if(DEMO) return Promise.resolve(true);
@@ -339,7 +378,8 @@ async function pushLook(key){
   if(key === 'usb'){
     if(isSolid(s.look)){ const [hh, sat, v] = ledHsv(usbFix(s.look[0])); return link.send(usbColour(hh, sat, v * b)); }
     const n = usbSegs();
-    return link.send(CURTAIN.smear(Array.from({length: n}, (_, i) => { const [hh, sat, v] = ledHsv(usbFix(lookAt(s.look, i / (n - 1), i))); return [hh, sat, v * b]; })));
+    const payload = CURTAIN.smear(Array.from({length: n}, (_, i) => { const [hh, sat, v] = ledHsv(usbFix(lookAt(s.look, i / (n - 1), i))); return [hh, sat, v * b]; }));
+    return payload.length + 1 <= 255 ? link.send(payload) : link.sendFrames(usbFrames(link.nextSeq(), payload, ls.get('usb.frag', 'A')));
   }
   const n = segCount(), m = stripMethod();
   const frame = Array.from({length: n}, (_, i) => stripRgb(lookAt(s.look, n > 1 ? i / (n - 1) : 0, i)));
@@ -352,7 +392,7 @@ async function pushLook(key){
 }
 const pushBright = {
   curtain: throttle(() => pushLook('curtain'), 250),
-  usb: throttle(() => pushLook('usb'), 250),
+  usb: throttle(() => pushLook('usb'), 450),
   strip: throttle(() => links.strip.send(STRIP.bright(L.strip.bright)), 150),
 };
 async function applyLight(key, {look, bright} = {}){
@@ -454,7 +494,7 @@ function render(key){
     const {vis} = curtainRows();
     $$('.cell', c.grid).forEach(d => { const r = +d.dataset.r; d.style.setProperty('--c', dim(lookAt(s.look, vis > 1 ? r / (vis - 1) : 0, r), b)); });
   }else{
-    const n = key === 'usb' ? usbSegs() : segCount();
+    const n = key === 'usb' ? Math.min(usbSegs(), 30) : segCount();
     if(c.bar.childElementCount !== n){ c.bar.innerHTML = ''; for(let i = 0; i < n; i++) c.bar.appendChild(h('i')); }
     Array.from(c.bar.children).forEach((d, i) => d.style.setProperty('--c', dim(lookAt(s.look, n > 1 ? i / (n - 1) : 0, i), b)));
     c.wash.style.setProperty('--wash', lookCss(s.look)); c.wash.style.setProperty('--wo', String(0.25 + 0.5 * b));
@@ -1702,7 +1742,19 @@ function bindSettings(){
   }, 300));
   $('#pairUsb').textContent = 'Pair the ' + usbName();
   $('#usbSegs').value = String(usbSegs());
-  $('#usbSegs').onchange = e => { ls.set('usb.segs', clamp(+e.target.value || 20, 2, 60)); e.target.value = usbSegs(); render('usb'); if(links.usb.on && L.usb.on) pushLook('usb'); };
+  $('#usbSegs').onchange = e => { ls.set('usb.leds', clamp(+e.target.value || 200, 2, 600)); e.target.value = usbSegs(); render('usb'); if(links.usb.on && L.usb.on) pushLook('usb'); };
+  // full-length test: a rainbow along every LED, sent with one of the five ways of splitting it
+  $$('#usbFrag button').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.v === ls.get('usb.frag', 'A'));
+    btn.onclick = async () => {
+      if(!needLink('usb')) return;
+      ls.set('usb.frag', btn.dataset.v); $$('#usbFrag button').forEach(x => x.classList.toggle('on', x === btn));
+      const n = usbSegs(), payload = CURTAIN.smear(Array.from({length: n}, (_, i) => ledHsv(usbFix(colorAt(RAINBOW, i / (n - 1))))));
+      await links.usb.send(CURTAIN.power(true));
+      await links.usb.sendFrames(usbFrames(links.usb.nextSeq(), payload, btn.dataset.v));
+      toast(`Sent a rainbow with test ${btn.textContent}. Does it run along all ${n} LEDs?`);
+    };
+  });
   // colour check: show red, ask what it looks like, then green; work out the channel order from the two answers
   const ucBox = $('#usbCheck'), ucQ = $('#usbCheckQ'), ucStatus = () => { $('#usbOrderNow').textContent = usbOrder() === 'rgb' ? 'Not corrected' : 'Corrected (' + usbOrder().toUpperCase() + ')'; };
   let ucStep = 0, ucFirst = null;
