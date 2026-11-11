@@ -9,6 +9,12 @@ Open the page in **Chrome on Android** (or Chrome/Edge on a computer), tap **Con
 It talks to the lights directly over Web Bluetooth, so no app or PC is needed. Close the maker's app first
 (Surplife or Govee Home), because the lights only accept one connection at a time.
 
+**Home** (`home.html`) is a wall-panel dashboard for a tablet: clock, weather (Open-Meteo), scenes that set both
+lights at once, a card per light, and Spotify's now playing with controls and a speaker picker. Install it from Chrome
+(menu > Install app / Add to Home screen) to run it full screen. It goes to a black clock, or the album art, when idle.
+Spotify needs your own app's Client ID from developer.spotify.com (Premium account) with this page's URL as the redirect URI.
+Open `home.html?demo` to preview it with sample data.
+
 Both pages have solid colours with brightness, animated effects (including music via the phone's mic),
 a painter and a command finder for testing.
 
