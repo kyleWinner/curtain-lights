@@ -93,7 +93,7 @@ body[data-view=lights] .glows{opacity:1}
 .gName{font-family:var(--display);font-weight:700;font-size:clamp(46px,6vw,64px);line-height:1.05;letter-spacing:-.025em;margin-top:2px;
   background:linear-gradient(180deg,#ffe9c4,#f2b866);-webkit-background-clip:text;background-clip:text;color:transparent}
 .gName:empty{display:none}
-.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,1.8vw,18px);width:min(740px,92vw)}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(12px,1.8vw,18px);width:min(940px,94vw)}
 .tile{border-radius:26px;aspect-ratio:1.08;padding:18px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
   color:var(--warmfg);text-align:center;transition:transform .12s,border-color .25s;position:relative;overflow:hidden;min-width:0}
 .tile:active{transform:scale(.96)}
@@ -154,6 +154,21 @@ body[data-view=lights] .glows{opacity:1}
 .ax.busy .ring{animation:axpulse .9s ease-in-out infinite}
 @keyframes axpulse{50%{box-shadow:inset 0 0 0 2px var(--ax),0 0 14px var(--ax)}}
 .ax.done{border-color:var(--ax)}.ax.fail{border-color:var(--err)}
+/* Alexa page */
+.axBody{flex:1;min-height:0;overflow:auto;padding:10px var(--pad) var(--pad)}
+.axGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:var(--gap);align-content:start}
+.axc{--ax:#00caff;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:14px;min-width:0;min-height:150px;
+  border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 84%,transparent);border-radius:22px;padding:18px;text-align:left;
+  transition:transform .1s,border-color .25s,background .25s}
+.axc:active{transform:scale(.97)}
+.axc .ring{width:52px;height:52px}
+.axc .ring svg{width:26px;height:26px}
+.axc b{font-weight:600;font-size:19px;letter-spacing:-.01em;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:auto}
+.axc small{color:var(--muted);font-size:13px;line-height:1.35;margin-top:-10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.axc.busy .ring{animation:axpulse .9s ease-in-out infinite}
+.axc.done{border-color:var(--ax);background:color-mix(in srgb,var(--ax) 8%,var(--surface))}.axc.done small{color:var(--ax)}
+.axc.fail{border-color:var(--err)}.axc.fail small{color:var(--err)}
+.axGrid .axEmpty{grid-column:1/-1;font-size:15px;padding:18px 20px}
 .axEmpty{color:var(--muted);font-size:13.5px;line-height:1.45;border:1px dashed var(--line);border-radius:14px;padding:12px 14px}
 
 .dev{--dc:#ff7a3d;display:flex;flex-direction:column;gap:12px;min-height:0;padding:14px}
@@ -451,7 +466,9 @@ textarea.field{resize:none;min-height:64px}
 /* ---------- portrait ---------- */
 @media (orientation:portrait){
   .lTabs{max-width:360px}
-  .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr));width:min(560px,86vw)}
+  .tile{aspect-ratio:1.5}
+  .axGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .hWx{min-width:0}
   .lBody{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
   .lLeft{overflow:visible}

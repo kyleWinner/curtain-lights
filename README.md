@@ -9,10 +9,11 @@ Open the page in **Chrome on Android** (or Chrome/Edge on a computer), tap **Con
 It talks to the lights directly over Web Bluetooth, so no app or PC is needed. Close the maker's app first
 (Surplife or Govee Home), because the lights only accept one connection at a time.
 
-**Home** (`home.html`, `home.css`, `home.js`) is a wall-panel app for a tablet, with four screens:
+**Home** (`home.html`, `home.css`, `home.js`) is a wall-panel app for a tablet, with five screens:
 - **Home**: greeting, clock, weather (Open-Meteo), tiles for the other screens, and **Goodnight**
   (runs an Alexa routine through Voice Monkey, then turns the lights off after a delay).
-- **Lights**: 15 scenes that set the curtain and strip together, Alexa buttons, and a card per light.
+- **Lights**: 15 scenes and 16 animated effects across the curtain, strip and USB lights, and a card per light.
+- **Alexa**: buttons that run Alexa routines or announcements through Voice Monkey, optionally followed by a lights action.
 - **Music**: Spotify library, search, playlists and albums, with a player bar and speaker picker.
   Needs your own Spotify app's Client ID (Premium) with this page's URL as the redirect URI.
 - **Calendar**: a shared Google Calendar through `calendar-bridge.gs` (an Apps Script web app; set-up steps

@@ -801,13 +801,26 @@ async function vmCall(b){
   const j = await r.json().catch(() => null);
   if(!r.ok || (j && j.success === false)) throw new Error((j && VM_ERRORS[j.error]) || (j && j.error) || 'Voice Monkey error ' + r.status);
 }
+// What a button does, in a few words, for the Alexa page.
+function axDesc(b){
+  const parts = [];
+  if(b.device) parts.push(b.kind === 'announce' ? `Says “${b.speech || b.label}”` : 'Runs a routine');
+  const act = axAction(b.scene);
+  if(act){
+    const mins = +b.delay || 0, what = SCENES.some(x => x.id === b.scene) ? act.name + ' scene' : act.name;
+    parts.push((parts.length ? 'then ' : '') + what + (mins ? ` in ${mins} min` : ''));
+  }
+  const t = parts.join(', ');
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Nothing set yet';
+}
 function renderAlexa(){
   const box = $('#alexa'); box.innerHTML = '';
   if(!axButtons.length){
-    box.appendChild(h('div', {class: 'axEmpty'}, 'Add buttons that run your Alexa routines in ', h('b', null, 'Settings › Alexa'), '.'));
+    box.appendChild(h('div', {class: 'axEmpty'}, 'No Alexa buttons yet. Tap ', h('b', null, 'Edit buttons'), ' to add ones that run your Alexa routines, make announcements or set the lights.'));
   }
   axButtons.forEach(b => {
-    const el = h('button', {class: 'ax'}, h('span', {class: 'ring', html: axSvg(b.icon)}), h('b', null, b.label));
+    const sub = h('small', null, axDesc(b));
+    const el = h('button', {class: 'axc'}, h('span', {class: 'ring', html: axSvg(b.icon)}), h('b', null, b.label), sub);
     el.onclick = async () => {
       if(el.classList.contains('busy')) return;
       el.classList.remove('done', 'fail'); el.classList.add('busy');
@@ -826,10 +839,13 @@ function renderAlexa(){
       }
       el.classList.add(ok ? 'done' : 'fail');
       if(ok && msg.length){ const t = msg.join(', '); toast(t.charAt(0).toUpperCase() + t.slice(1)); }
-      el.classList.remove('busy'); setTimeout(() => el.classList.remove('done', 'fail'), 1800);
+      sub.textContent = ok ? 'Sent ✓' : 'Didn’t go through';
+      el.classList.remove('busy'); setTimeout(() => { el.classList.remove('done', 'fail'); sub.textContent = axDesc(b); }, 1800);
     };
     box.appendChild(el);
   });
+  const t = $('#tAlexa');
+  if(t) t.textContent = axButtons.length ? `${axButtons.length} button${axButtons.length === 1 ? '' : 's'}` : 'Set up buttons';
   renderAxList();
 }
 let axEditing = -1, axIcon = 'bulb';
@@ -934,7 +950,7 @@ function renderGn(){
 // =====================================================================
 // Views
 // =====================================================================
-const VIEWS = ['home', 'lights', 'music', 'calendar'];
+const VIEWS = ['home', 'lights', 'music', 'calendar', 'alexa'];
 let view = null;
 const calMode = () => ls.get('home.calMode', false);
 const homeView = () => calMode() ? 'calendar' : 'home';
@@ -2107,6 +2123,7 @@ function demoCalApi(action, data){
 applyBg();
 makeCard('curtain'); makeCard('strip'); makeCard('usb');
 buildFx(); $$('#lTabs button').forEach(b => { b.onclick = () => showLightsTab(b.dataset.t); }); showLightsTab(ls.get('home.lightsTab', 'scenes')); buildScenes(); renderAlexa(); axReset();
+$('#axEditBtn').onclick = () => { openSheet('settings'); requestAnimationFrame(() => $('#axSec').scrollIntoView({block: 'start'})); };
 bindSettings(); setFollow(follow);
 render('curtain'); render('strip'); render('usb');
 $('#oMotion').setAttribute('aria-checked', String(ls.get('home.motion', false))); $('#motionBox').hidden = !ls.get('home.motion', false);

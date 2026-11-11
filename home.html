@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="home.css?v=9">
+<link rel="stylesheet" href="home.css?v=10">
 </head>
 <body data-view="home">
 <div class="bgImg" aria-hidden="true"></div><div class="bgShade" aria-hidden="true"></div>
@@ -53,6 +53,10 @@
           <span class="tIcon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></svg></span>
           <b>Calendar</b><small id="tCal"></small>
         </button>
+        <button class="tile glass" data-go="alexa">
+          <span class="tIcon"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="4.5"/><circle cx="12" cy="14.5" r="2.6"/><path d="M9.5 7.5h5"/></svg></span>
+          <b>Alexa</b><small id="tAlexa"></small>
+        </button>
       </div>
       <button class="goodnight glass" id="gnBtn"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span id="gnText">Goodnight</span><small id="gnSub"></small></button>
     </div>
@@ -83,8 +87,6 @@
           </div>
           <button class="btn sm wide" id="fxStop" hidden style="margin-top:10px">Stop effect</button>
         </div>
-        <div class="secLabel mt">Alexa</div>
-        <div class="alexa" id="alexa"></div>
       </div>
       <div class="lCards">
         <section class="card dev" id="dev-curtain"></section>
@@ -92,6 +94,16 @@
         <section class="card dev" id="dev-usb"></section>
       </div>
     </div>
+  </section>
+
+  <!-- ============ ALEXA ============ -->
+  <section class="view vAlexa" data-view="alexa" hidden>
+    <header class="topbar">
+      <button class="back" data-back><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg><span class="backLbl">Home</span></button>
+      <h1>Alexa</h1>
+      <div class="tbRight"><button class="btn ghost sm" id="axEditBtn">Edit buttons</button></div>
+    </header>
+    <div class="axBody"><div class="axGrid" id="alexa"></div></div>
   </section>
 
   <!-- ============ MUSIC ============ -->
@@ -260,7 +272,7 @@
       <label class="opt">Lights off after
         <select id="gnMins"><option value="1">1 minute</option><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option></select></label>
 
-      <div style="margin-top:16px;font-weight:600">Buttons on the Lights screen</div>
+      <div style="margin-top:16px;font-weight:600">Buttons on the Alexa screen</div>
       <div class="axList" id="axList"></div>
       <div class="axForm">
         <div class="two">
@@ -328,6 +340,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script src="home.js?v=9"></script>
+<script src="home.js?v=10"></script>
 </body>
 </html>
