@@ -154,6 +154,13 @@ body[data-view=lights] .glows{opacity:1}
 .ax.busy .ring{animation:axpulse .9s ease-in-out infinite}
 @keyframes axpulse{50%{box-shadow:inset 0 0 0 2px var(--ax),0 0 14px var(--ax)}}
 .ax.done{border-color:var(--ax)}.ax.fail{border-color:var(--err)}
+/* All on / All off */
+.pwrBtn{display:flex;align-items:center;gap:8px;height:44px;padding:0 18px 0 14px;border-radius:999px;font-weight:600;font-size:15px;
+  border:1px solid color-mix(in srgb,var(--warm) 45%,var(--line));background:color-mix(in srgb,var(--warm) 14%,var(--surface));color:var(--fg);transition:transform .1s}
+.pwrBtn.off{border-color:var(--line);background:var(--surface2)}
+.pwrBtn:active{transform:scale(.95)}
+.pwrBtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
+.pwrBtn:not(.off) svg{stroke:var(--warm)}
 /* Alexa page */
 .axBody{flex:1;min-height:0;overflow:auto;padding:10px var(--pad) var(--pad)}
 .axGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:var(--gap);align-content:start}

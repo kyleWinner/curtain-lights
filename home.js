@@ -533,6 +533,7 @@ const POWER_ICON = '<svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.
 function buildScenes(){
   const box = $('#scenes'); box.innerHTML = '';
   for(const sc of SCENES){
+    if(sc.off) continue; // All on / All off live in the header now
     const i = h('i', {html: sc.off ? POWER_ICON : ''});
     i.style.setProperty('--g', sc.off ? 'var(--surface2)' : lookCss(sc.curtain));
     const b = h('button', {class: 'scene', onclick: () => runScene(sc)}, i, h('b', null, sc.name));
@@ -550,6 +551,16 @@ async function runScene(sc){
   await Promise.all(Object.keys(links).filter(k => links[k].on).map(k =>
     sc.off ? setPower(k, false) : applyLight(k, {look: sc[k] || sc.strip, bright: sc.bright})));
   if(skipped.length) toast(`${skipped.join(' and ')} ${skipped.length > 1 ? 'aren\'t' : 'isn\'t'} connected, so ${skipped.length > 1 ? 'they were' : 'it was'} left alone`);
+}
+// All on / All off: every connected light at once.
+async function allPower(on){
+  const keys = Object.keys(links), live = keys.filter(k => links[k].on);
+  if(!live.length){ toast('Connect your lights first', true); return; }
+  clearScene(); setFollow(false);
+  await Promise.all(live.map(k => setPower(k, on)));
+  const skipped = keys.filter(k => !links[k].on).map(k => links[k].label);
+  toast((live.length === keys.length ? 'All lights ' : live.map(k => links[k].label).join(' and ') + ' ') + (on ? 'on' : 'off') +
+    (skipped.length ? ` · ${skipped.join(' and ')} not connected` : ''));
 }
 function renderHomeTiles(){
   const el = $('#tLights'); if(!el) return;
@@ -850,7 +861,7 @@ function renderAlexa(){
 }
 let axEditing = -1, axIcon = 'bulb';
 const axTimers = {};
-const LIGHT_ACTIONS = [['curtain:on', 'Curtain on'], ['curtain:off', 'Curtain off'], ['strip:on', 'Strip on'], ['strip:off', 'Strip off'],
+const LIGHT_ACTIONS = [['all:on', 'All lights on'], ['all:off', 'All lights off'], ['curtain:on', 'Curtain on'], ['curtain:off', 'Curtain off'], ['strip:on', 'Strip on'], ['strip:off', 'Strip off'],
   ['usb:on', usbName() + ' on'], ['usb:off', usbName() + ' off']];
 // A button's light part: a scene id, or 'curtain:on' style for one light.
 function axAction(id){
@@ -859,6 +870,7 @@ function axAction(id){
   if(sc) return {name: sc.name, done: 'lights set to ' + sc.name, run: () => runScene(sc)};
   const la = LIGHT_ACTIONS.find(([k]) => k === id); if(!la) return null;
   const [key, state] = id.split(':');
+  if(key === 'all') return {name: la[1], done: la[1].toLowerCase().replace(' on', ' switched on').replace(' off', ' switched off'), run: () => allPower(state === 'on')};
   return {name: la[1], done: la[1].toLowerCase().replace(' on', ' switched on').replace(' off', ' switched off'), run: () => { if(!needLink(key)) return; clearScene(); setPower(key, state === 'on'); }};
 }
 function saveAx(){ ls.set('home.vm.buttons', axButtons); renderAlexa(); }
@@ -2123,6 +2135,7 @@ function demoCalApi(action, data){
 applyBg();
 makeCard('curtain'); makeCard('strip'); makeCard('usb');
 buildFx(); $$('#lTabs button').forEach(b => { b.onclick = () => showLightsTab(b.dataset.t); }); showLightsTab(ls.get('home.lightsTab', 'scenes')); buildScenes(); renderAlexa(); axReset();
+$('#allOn').onclick = () => allPower(true); $('#allOff').onclick = () => allPower(false);
 $('#axEditBtn').onclick = () => { openSheet('settings'); requestAnimationFrame(() => $('#axSec').scrollIntoView({block: 'start'})); };
 bindSettings(); setFollow(follow);
 render('curtain'); render('strip'); render('usb');
