@@ -1788,7 +1788,8 @@ async function saveEvent(){
   const title = $('#evTitle').value.trim(), date = $('#evDate').value;
   if(!title){ toast('Give the event a name', true); return; }
   if(!date){ toast('Pick a date', true); return; }
-  const p = {title, who: evWhoSel, allDay: evAllDay, location: $('#evLoc').value.trim(), notes: $('#evNotes').value.trim()};
+  const n = names(), whoName = evWhoSel === 'both' ? `${n.p1} & ${n.p2}` : (n[evWhoSel] || '');
+  const p = {title, who: evWhoSel, whoName, allDay: evAllDay, location: $('#evLoc').value.trim(), notes: $('#evNotes').value.trim()};
   if(evAllDay){ p.start = date; p.end = ymd(addDays(parseYmd(date), 1)); }
   else{
     const s = new Date(`${date}T${$('#evStart').value || '09:00'}`); let en = new Date(`${date}T${$('#evEnd').value || '10:00'}`);
@@ -1806,7 +1807,7 @@ async function saveEvent(){
 async function deleteEvent(){
   if(!evEditing) return;
   if(!evDelArmed){ evDelArmed = true; $('#evDel').textContent = 'Tap again to delete'; setTimeout(() => { evDelArmed = false; $('#evDel').textContent = 'Delete'; }, 3500); return; }
-  try{ await calApi('delete', {id: evEditing.id}); closeSheets(); toast('Event deleted'); await calLoad(); }catch(e){ toast(e.message, true); }
+  try{ await calApi('delete', {id: evEditing.id, whoName: (() => { const n = names(), w = evEditing.who; return w === 'both' ? `${n.p1} & ${n.p2}` : (n[w] || ''); })()}); closeSheets(); toast('Event deleted'); await calLoad(); }catch(e){ toast(e.message, true); }
 }
 
 // =====================================================================
