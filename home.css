@@ -234,6 +234,7 @@ body[data-view=lights] .glows{opacity:1}
 .mBody{flex:1;min-height:0;display:grid;grid-template-columns:250px minmax(0,1fr);gap:var(--gap);padding:6px var(--pad) 0}
 .lib{min-height:0;display:flex;flex-direction:column;padding:12px 8px}
 .libHead{font-weight:700;font-size:15px;padding:2px 8px 10px;display:flex;align-items:center;gap:8px}
+.libSort{margin-left:auto;font-weight:500;font-size:12px;color:var(--muted)}
 .libHead svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round}
 .libList{flex:1;min-height:0;overflow:auto}
 .li{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:6px 8px;border-radius:10px;text-align:left;min-width:0}

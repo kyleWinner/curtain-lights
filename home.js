@@ -1177,7 +1177,7 @@ async function sp(method, path, body, retried){
 }
 function spLogout(expired){
   SP.tok = null; SP.state = null; ls.del('home.sp.tok'); clearTimeout(SP.timer);
-  M.lib = null; renderMusic(); renderSpSettings(); if(view === 'music') musicEnter();
+  M.lib = null; M.libRaw = null; M.recent = null; renderMusic(); renderSpSettings(); if(view === 'music') musicEnter();
   if(expired) toast('Spotify signed out. Connect it again in Settings.', true);
 }
 async function spPoll(){
@@ -1188,6 +1188,7 @@ async function spPoll(){
   if(Date.now() < SP.backoff){ SP.timer = setTimeout(spPoll, SP.backoff - Date.now()); return; }
   try{ SP.state = await sp('GET', '/me/player?additional_types=episode'); SP.at = Date.now(); SP.err = null; }
   catch(e){ SP.err = e; if(e.status === 403) SP.state = null; }
+  if(SP.state && SP.state.is_playing && SP.state.context) markPlayed(SP.state.context.uri);
   renderMusic();
   const st = SP.state, playing = !!(st && st.is_playing && st.item);
   let next = playing ? 5000 : (view === 'music' ? 8000 : 15000);
@@ -1235,7 +1236,7 @@ async function spPlay(body){
     }else spErr(e);
   }
 }
-const playContext = (uri, offsetUri) => spPlay(offsetUri ? {context_uri: uri, offset: {uri: offsetUri}} : {context_uri: uri});
+const playContext = (uri, offsetUri) => (markPlayed(uri), spPlay(offsetUri ? {context_uri: uri, offset: {uri: offsetUri}} : {context_uri: uri}));
 const playUris = (uris, i = 0) => spPlay({uris, offset: {position: i}});
 async function queueTrack(uri, name){
   try{ if(!DEMO) await sp('POST', '/me/player/queue?uri=' + encodeURIComponent(uri)); toast('Added to queue: ' + name); }catch(e){ spErr(e); }
@@ -1369,16 +1370,61 @@ function followAlbum(){
 // ---------- music browser ----------
 const M = {stack: [], cur: {type: 'home'}, lib: null, libErr: null, me: null, recent: null, q: ''};
 function musicEnter(){
-  if(spSigned() && spHasLib() && !M.lib && !M.libLoading) loadLib(); else renderLib();
+  if(spSigned() && spHasLib() && !M.lib && !M.libLoading) loadLib(); else{ sortLib(); renderLib(); refreshLibOrder(); }
   renderMain();
   spPoll();
 }
+// Playlists are ordered by when they were last played: the playlists behind the recently played
+// songs (any device), plus what this panel has started or seen playing. Never-played ones keep
+// Spotify's own order underneath.
+let plPlayed = ls.get('home.sp.plPlayed', {});
+function markPlayed(uri, t = Date.now()){
+  if(!uri || !/:playlist:|:collection/.test(uri)) return;
+  if((plPlayed[uri] || 0) > t - 60000) return; // at most one save a minute per playlist
+  plPlayed[uri] = t;
+  const keep = Object.entries(plPlayed).sort((a, b) => b[1] - a[1]).slice(0, 300); // cap the stored list
+  plPlayed = Object.fromEntries(keep); ls.set('home.sp.plPlayed', plPlayed);
+}
+async function getRecent(force){
+  if(!force && M.recent && Date.now() - M.recent.at < 60000) return M.recent.items;
+  const j = DEMO ? demoRecent() : await sp('GET', '/me/player/recently-played?limit=50');
+  M.recent = {at: Date.now(), items: (j && j.items) || []};
+  for(const it of M.recent.items) if(it.context && it.played_at) markPlayed(it.context.uri, Date.parse(it.played_at));
+  return M.recent.items;
+}
+function sortLib(){
+  if(!M.libRaw) return false;
+  const pos = new Map(M.libRaw.map((p, i) => [p.uri, i]));
+  const next = M.libRaw.slice().sort((a, b) => ((plPlayed[b.uri] || 0) - (plPlayed[a.uri] || 0)) || (pos.get(a.uri) - pos.get(b.uri)));
+  const changed = !M.lib || next.some((p, i) => p !== M.lib[i]);
+  M.lib = next; return changed;
+}
 async function loadLib(){
   M.libLoading = true;
-  try{ const j = DEMO ? demoLib() : await sp('GET', '/me/playlists?limit=50'); M.lib = ((j && j.items) || []).filter(Boolean); M.libErr = null; }
+  try{
+    const all = [];
+    if(DEMO) all.push(...demoLib().items);
+    else{
+      let path = '/me/playlists?limit=50';
+      for(let i = 0; path && i < 8; i++){ // up to 400 playlists
+        const j = await sp('GET', path);
+        all.push(...((j && j.items) || []));
+        path = j && j.next ? j.next.replace('https://api.spotify.com/v1', '') : null;
+      }
+    }
+    M.libRaw = all.filter(Boolean); M.libErr = null;
+    try{ await getRecent(); }catch(e){}
+    sortLib();
+  }
   catch(e){ M.libErr = e; }
   M.libLoading = false; renderLib();
   if(M.cur.type === 'home') renderMain();
+}
+// Re-sort when the music screen opens, so a playlist started on a phone moves up.
+async function refreshLibOrder(){
+  if(!M.libRaw) return;
+  try{ await getRecent(); }catch(e){}
+  if(sortLib()){ renderLib(); if(M.cur.type === 'home') renderMain(); }
 }
 const plCount = p => (p.items && p.items.total) ?? (p.tracks && p.tracks.total) ?? null;
 function renderLib(){
@@ -1453,10 +1499,8 @@ async function renderMusicHome(){
     const recentBox = h('div', {class: 'cards hscroll'}, h('p', {class: 'note'}, 'Loading…'));
     main.append(h('div', {class: 'mh2'}, 'Recently played'), recentBox);
     try{
-      if(!M.recent || Date.now() - M.recent.at > 60000){
-        const j = DEMO ? demoRecent() : await sp('GET', '/me/player/recently-played?limit=40');
-        M.recent = {at: Date.now(), items: (j && j.items) || []};
-      }
+      await getRecent();
+      if(!recentBox.isConnected) return; // a newer render replaced this one
       recentBox.innerHTML = '';
       const seen = new Set();
       for(const it of M.recent.items){
@@ -1467,6 +1511,7 @@ async function renderMusicHome(){
       }
       if(!seen.size) recentBox.appendChild(h('p', {class: 'note'}, 'Nothing played recently.'));
     }catch(e){ recentBox.innerHTML = ''; recentBox.appendChild(h('p', {class: 'note'}, e.message)); }
+    if(!recentBox.isConnected) return;
     if(M.lib && M.lib.length){
       const grid = h('div', {class: 'cards'});
       main.append(h('div', {class: 'mh2'}, 'Your playlists'), grid);
@@ -2088,7 +2133,7 @@ function demoDevices(){
 }
 const DEMO_PL = ['Evening Wind Down', 'Saturday Kitchen', 'Focus Flow', 'Throwbacks', 'Gym Mode', 'Rainy Day', 'Dinner Party', 'Road Trip'];
 function demoLib(){ return {items: DEMO_PL.map((n, i) => ({id: 'p' + i, uri: 'spotify:playlist:p' + i, name: n, owner: {display_name: i % 3 ? 'Kyle' : 'Spotify'}, images: demoImg(i + 1), items: {total: 20 + i * 7}}))}; }
-function demoRecent(){ return {items: Array.from({length: 12}, (_, i) => ({track: demoTrack(i * 2 + 1), context: {uri: 'spotify:playlist:p' + (i % 8)}}))}; }
+function demoRecent(){ return {items: Array.from({length: 12}, (_, i) => ({track: demoTrack(i * 2 + 1), context: {uri: 'spotify:playlist:p' + [5, 2, 7, 5, 3][i % 5]}, played_at: new Date(Date.now() - (i + 1) * 600000).toISOString()}))}; }
 function demoTracks(id, offset){ return {items: Array.from({length: 12}, (_, i) => ({item: demoTrack(i + offset + (String(id).length * 3))})), next: null}; }
 function demoAlbum(id){ return {uri: 'spotify:album:' + id, name: 'Weather', artists: [{name: 'Low Tide'}], release_date: '2025-03-01', total_tracks: 10, images: demoImg(5), tracks: {items: Array.from({length: 10}, (_, i) => demoTrack(i + 3))}}; }
 function demoSearch(q){
