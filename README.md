@@ -18,7 +18,7 @@ It talks to the lights directly over Web Bluetooth, so no app or PC is needed. C
   Needs your own Spotify app's Client ID (Premium) with this page's URL as the redirect URI.
 - **Calendar**: a shared Google Calendar through `calendar-bridge.gs` (an Apps Script web app; set-up steps
   are at the top of that file). Opening it switches the panel into calendar mode until "Close calendar".
-  The bridge can also post new events to a Discord channel through a webhook (step 8 in that file).
+  Events added on the panel can also be posted to a Discord channel: paste a webhook URL in Settings > Calendar.
 
 Install it from Chrome (menu > Install app) to run full screen. Open `home.html?demo` to preview it with sample data.
 

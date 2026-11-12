@@ -1784,6 +1784,38 @@ function openEditor(e, date){
   openSheet('evSheet');
   if(!e) setTimeout(() => $('#evTitle').focus(), 250);
 }
+// ---- Discord: the tablet posts to a webhook itself (Discord often blocks Apps Script's servers) ----
+const dcUrl = () => ls.get('home.cal.discord', '').trim();
+const DC_COL = {p1: 0x5484ED, p2: 0xE67C73, both: 0x8E24AA, '': 0xD6A266};
+function dcWhen(p){
+  const d = x => x.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'});
+  const t = x => x.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'});
+  if(p.allDay){
+    const s = parseYmd(p.start), e = addDays(parseYmd(p.end), -1);
+    return +s === +e ? d(s) + ' · All day' : d(s) + ' – ' + d(e);
+  }
+  const s = new Date(p.start), e = new Date(p.end);
+  return d(s) + ' · ' + t(s) + '–' + (ymd(s) === ymd(e) ? t(e) : d(e) + ' ' + t(e));
+}
+async function dcSend(body){
+  const url = dcUrl(); if(!url) return;
+  const r = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(Object.assign({username: 'Home calendar'}, body))});
+  if(!r.ok) throw new Error('Discord replied ' + r.status);
+}
+function dcEvent(action, p){
+  if(!dcUrl() || DEMO) return;
+  if(action !== 'add' && !ls.get('home.cal.dcAll', false)) return;
+  const heads = {add: 'New event, added on the wall panel', update: 'Event changed on the wall panel', delete: 'Event deleted on the wall panel'};
+  const fields = [];
+  if(p.whoName) fields.push({name: 'Who', value: p.whoName, inline: true});
+  if(p.location) fields.push({name: 'Where', value: p.location, inline: true});
+  if(p.notes) fields.push({name: 'Notes', value: p.notes.slice(0, 1000)});
+  const day = (p.allDay ? p.start : ymd(new Date(p.start))).split('-');
+  dcSend({embeds: [{author: {name: heads[action]}, title: (p.title || 'Event').slice(0, 250), description: p.start ? dcWhen(p) : '',
+    url: 'https://calendar.google.com/calendar/r/day/' + day.map(Number).join('/'),
+    color: DC_COL[p.who || ''] ?? DC_COL[''], fields}]})
+    .catch(() => toast('Saved, but the Discord message didn\'t send', true));
+}
 async function saveEvent(){
   const title = $('#evTitle').value.trim(), date = $('#evDate').value;
   if(!title){ toast('Give the event a name', true); return; }
@@ -1799,6 +1831,7 @@ async function saveEvent(){
   const btn = $('#evSave'); btn.disabled = true; btn.textContent = 'Saving…';
   try{
     await calApi(evEditing ? 'update' : 'add', evEditing ? Object.assign({id: evEditing.id}, p) : p);
+    dcEvent(evEditing ? 'update' : 'add', p);
     closeSheets(); toast(evEditing ? 'Event updated' : 'Event added');
     CAL.sel = parseYmd(date); await calLoad();
   }catch(e){ toast(e.message, true); }
@@ -1807,7 +1840,10 @@ async function saveEvent(){
 async function deleteEvent(){
   if(!evEditing) return;
   if(!evDelArmed){ evDelArmed = true; $('#evDel').textContent = 'Tap again to delete'; setTimeout(() => { evDelArmed = false; $('#evDel').textContent = 'Delete'; }, 3500); return; }
-  try{ await calApi('delete', {id: evEditing.id, whoName: (() => { const n = names(), w = evEditing.who; return w === 'both' ? `${n.p1} & ${n.p2}` : (n[w] || ''); })()}); closeSheets(); toast('Event deleted'); await calLoad(); }catch(e){ toast(e.message, true); }
+  const n = names(), w = evEditing.who || '', whoName = w === 'both' ? `${n.p1} & ${n.p2}` : (n[w] || '');
+  try{ await calApi('delete', {id: evEditing.id, whoName});
+    dcEvent('delete', {title: evEditing.title, who: w, whoName, allDay: evEditing.allDay, start: evEditing.start, end: evEditing.end, location: evEditing.location});
+    closeSheets(); toast('Event deleted'); await calLoad(); }catch(e){ toast(e.message, true); }
 }
 
 // =====================================================================
@@ -1917,7 +1953,7 @@ function openSheet(id){
   if(id === 'settings'){
     renderLocNow(); renderSpSettings(); $('#vmToken').value = vmToken(); renderAxList();
     $('#oName').value = ls.get('home.name', 'Kyle'); $('#calUrl').value = calUrl(); $('#calSecret').value = calSecret();
-    $('#calP1').value = ls.get('home.cal.p1', ''); $('#calP2').value = ls.get('home.cal.p2', ''); $('#calP1').placeholder = names().p1;
+    $('#calP1').value = ls.get('home.cal.p1', ''); $('#calP2').value = ls.get('home.cal.p2', ''); $('#calDiscord').value = dcUrl(); $('#calP1').placeholder = names().p1;
     $('#gnDevice').value = ls.get('home.gn.device', ''); $('#gnMins').value = String(ls.get('home.gn.mins', 5));
     $('#bgReset').hidden = !ls.get('home.bg', '');
   }
@@ -1987,6 +2023,18 @@ function bindSettings(){
   calSwitch('#oHol', 'home.cal.hol', true); calSwitch('#oObs', 'home.cal.obs', false); calSwitch('#oBday', 'home.cal.bday', true);
   $('#calP1').addEventListener('input', debounce(e => { ls.set('home.cal.p1', e.target.value.trim()); renderCal(); }, 300));
   $('#calP2').addEventListener('input', debounce(e => { ls.set('home.cal.p2', e.target.value.trim()); renderCal(); }, 300));
+  $('#calDiscord').addEventListener('change', e => {
+    const v = e.target.value.trim();
+    if(v && !/^https:\/\/(\w+\.)?discord(app)?\.com\/api\/webhooks\//.test(v)){ toast('That doesn\'t look like a Discord webhook URL', true); return; }
+    ls.set('home.cal.discord', v); toast(v ? 'Discord webhook saved' : 'Discord messages off');
+  });
+  bindSwitch($('#oDcAll'), 'home.cal.dcAll', false);
+  $('#calDiscordTest').onclick = async () => {
+    $('#calDiscord').dispatchEvent(new Event('change'));
+    if(!dcUrl()){ toast('Paste the webhook URL first', true); return; }
+    try{ await dcSend({embeds: [{title: 'Calendar messages are working', description: 'Events added on the wall panel will show up here.', color: DC_COL['']}]}); toast('Test message sent to Discord'); }
+    catch(e){ toast(e.message.includes('Discord') ? e.message : 'Couldn\'t reach Discord', true); }
+  };
   // alexa
   $('#vmSave').onclick = () => { ls.set('home.vm.token', $('#vmToken').value.trim()); toast($('#vmToken').value.trim() ? 'Voice Monkey token saved' : 'Token removed'); };
   $('#gnDevice').addEventListener('change', e => ls.set('home.gn.device', e.target.value.trim()));

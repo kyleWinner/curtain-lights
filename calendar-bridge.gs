@@ -17,10 +17,6 @@
  *     Execute as: Me.  Who has access: Anyone.  Deploy, then allow access when asked.
  *  6. Copy the Web app URL (ends in /exec) into the tablet: Settings > Calendar.
  *  7. For birthdays: in the editor's left bar, Services (+) > Google Calendar API > Add.
- *  8. Optional, Discord messages: in Discord, Server Settings > Integrations > Webhooks > New Webhook,
- *     pick the channel, Copy Webhook URL, and paste it into DISCORD_WEBHOOK below. Then pick
- *     testDiscord in the function menu at the top of the editor and press Run: it asks for
- *     permission to "connect to an external service" once and posts a test message.
  *
  * If you change this code later: Deploy > Manage deployments > edit > Version: New version.
  */
@@ -34,12 +30,6 @@ const SHOW_BIRTHDAYS = true;   // birthdays from your Google Contacts (Google ke
 
 // Colours set on events so they match on your phones too (Google's colour IDs).
 const WHO_COLOURS = {p1: '9', p2: '4', both: '3'};   // Blueberry, Flamingo, Grape
-
-// Discord: post a message when an event is added from the tablet. Leave '' to turn it off.
-const DISCORD_WEBHOOK = '';
-const DISCORD_ON = {add: true, update: false, delete: false};   // which tablet changes get a message
-const DISCORD_NAME = 'Home calendar';                           // who the message shows as from
-const DISCORD_COLOURS = {p1: 0x5484ED, p2: 0xE67C73, both: 0x8E24AA, '': 0xD6A266};
 
 function doGet(e) { return handle_(e.parameter || {}); }
 
@@ -68,7 +58,6 @@ function handle_(p) {
           ? cal.createAllDayEvent(p.title, day_(p.start), day_(p.end), opts_(p))
           : cal.createEvent(p.title, new Date(p.start), new Date(p.end), opts_(p));
         style_(ev, p);
-        discord_('add', cal, ev, p);
         return out_({ok: true, event: toJson_(ev)});
       }
       case 'update': {
@@ -80,15 +69,12 @@ function handle_(p) {
         ev.setLocation(p.location || '');
         ev.setDescription(p.notes || '');
         style_(ev, p);
-        discord_('update', cal, ev, p);
         return out_({ok: true, event: toJson_(ev)});
       }
       case 'delete': {
         const ev = find_(cal, p);
         if (ev.isRecurringEvent()) return out_({ok: false, error: 'Repeating events can only be deleted in Google Calendar'});
-        const gone = {title: ev.getTitle(), when: when_(ev), who: ev.getTag('who') || ''};
         ev.deleteEvent();
-        discord_('delete', cal, null, Object.assign({}, p, gone));
         return out_({ok: true});
       }
       default:
@@ -97,63 +83,6 @@ function handle_(p) {
   } catch (err) {
     return out_({ok: false, error: String(err && err.message || err)});
   }
-}
-
-// ---- Discord ----
-
-function discord_(action, cal, ev, p) {
-  if (!DISCORD_WEBHOOK || !DISCORD_ON[action]) return;
-  try {
-    const who = p.who || '', heads = {add: 'New event, added on the wall panel', update: 'Event changed on the wall panel', delete: 'Event deleted on the wall panel'};
-    const fields = [];
-    if (p.whoName) fields.push({name: 'Who', value: p.whoName, inline: true});
-    if (ev && ev.getLocation()) fields.push({name: 'Where', value: ev.getLocation(), inline: true});
-    if (ev && ev.getDescription()) fields.push({name: 'Notes', value: ev.getDescription().slice(0, 1000)});
-    const embed = {
-      author: {name: heads[action]},
-      title: (ev ? ev.getTitle() : p.title || 'Event').slice(0, 250),
-      description: ev ? when_(ev) : (p.when || ''),
-      color: DISCORD_COLOURS[who] || DISCORD_COLOURS[''],
-      fields: fields,
-    };
-    if (ev) { const url = link_(cal, ev); if (url) embed.url = url; }
-    post_({username: DISCORD_NAME, embeds: [embed]});
-  } catch (err) {
-    console.warn('Discord message failed: ' + err);   // never stop the calendar change because of Discord
-  }
-}
-
-function post_(body) {
-  const r = UrlFetchApp.fetch(DISCORD_WEBHOOK, {method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true});
-  if (r.getResponseCode() >= 300) throw new Error('Discord replied ' + r.getResponseCode() + ': ' + r.getContentText().slice(0, 200));
-}
-
-// "Sat 14 Nov · 19:00–21:00", "Sat 14 Nov · All day", "Sat 14 – Mon 16 Nov"
-function when_(ev) {
-  const tz = Session.getScriptTimeZone(), f = (d, x) => Utilities.formatDate(d, tz, x);
-  if (ev.isAllDayEvent()) {
-    const s = ev.getAllDayStartDate(), e = new Date(ev.getAllDayEndDate().getTime() - 864e5);
-    if (f(s, 'yyyyMMdd') === f(e, 'yyyyMMdd')) return f(s, 'EEE d MMM') + ' · All day';
-    return f(s, f(s, 'MMM') === f(e, 'MMM') ? 'EEE d' : 'EEE d MMM') + ' – ' + f(e, 'EEE d MMM');
-  }
-  const s = ev.getStartTime(), e = ev.getEndTime();
-  const sameDay = f(s, 'yyyyMMdd') === f(e, 'yyyyMMdd');
-  return f(s, 'EEE d MMM') + ' · ' + f(s, 'HH:mm') + '–' + (sameDay ? f(e, 'HH:mm') : f(e, 'EEE d MMM HH:mm'));
-}
-
-// Link that opens the event in Google Calendar.
-function link_(cal, ev) {
-  try {
-    const eid = Utilities.base64Encode(ev.getId().split('@')[0] + ' ' + cal.getId()).replace(/=+$/, '');
-    return 'https://www.google.com/calendar/event?eid=' + eid;
-  } catch (err) { return ''; }
-}
-
-// Run this once from the editor (function menu > testDiscord > Run) to allow it and check the webhook.
-function testDiscord() {
-  if (!DISCORD_WEBHOOK) throw new Error('Paste your webhook URL into DISCORD_WEBHOOK first');
-  post_({username: DISCORD_NAME, embeds: [{title: 'Calendar messages are working', color: DISCORD_COLOURS[''],
-    description: 'Events added on the wall panel will show up here.'}]});
 }
 
 function isBirthday_(e) {

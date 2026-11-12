@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="home.css?v=13">
+<link rel="stylesheet" href="home.css?v=14">
 </head>
 <body data-view="home">
 <div class="bgImg" aria-hidden="true"></div><div class="bgShade" aria-hidden="true"></div>
@@ -237,6 +237,9 @@
       <label class="opt">Birthdays from your Google Contacts <button class="switch" id="oBday" role="switch" aria-checked="true" style="--dc:#4ade80"><i></i></button></label>
       <p class="hint">Holidays and birthdays need the latest calendar-bridge.gs (see step 7 in it for birthdays).</p>
       <p class="hint">Names for the colour key. Events you add here get matching colours on your phones too: blue for you, pink for your partner, purple for both.</p>
+      <div class="row" style="margin-top:12px;flex-wrap:nowrap"><input class="field" id="calDiscord" type="password" placeholder="Discord webhook URL (optional)" autocomplete="off" spellcheck="false"><button class="btn sm ghost" id="calDiscordTest">Test</button></div>
+      <label class="opt" style="margin-top:8px">Also post edits and deletes <button class="switch" id="oDcAll" role="switch" aria-checked="false" style="--dc:#5865f2"><i></i></button></label>
+      <p class="hint">Events added here are posted to that Discord channel. In Discord: Server Settings &gt; Integrations &gt; Webhooks &gt; New Webhook &gt; Copy Webhook URL.</p>
     </div>
 
     <div class="sec" id="spSec">
@@ -343,6 +346,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script src="home.js?v=13"></script>
+<script src="home.js?v=14"></script>
 </body>
 </html>
