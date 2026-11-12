@@ -429,21 +429,21 @@ const cards = {};
 function makeCard(key){
   const el = $('#dev-' + key), link = links[key];
   el.innerHTML = `
+    <div class="devLine"></div>
     <div class="devHead">
       <div style="min-width:0"><h2 class="devName">${link.label}</h2><div class="status"><span class="dot"></span><span class="stext"></span></div></div>
-      <button class="switch" role="switch" aria-checked="false" aria-label="${link.label} power"><i></i></button>
+      <div class="devActs">
+        <button class="btn sm connect">Connect</button>${key === 'usb' ? '' : `<a class="more" href="${key === 'curtain' ? './' : 'strip.html'}">Full remote ›</a>`}
+        <button class="switch" role="switch" aria-checked="false" aria-label="${link.label} power"><i></i></button>
+      </div>
     </div>
-    <div class="stage">${key === 'curtain'
-      ? '<div class="rod"></div><div class="grid"></div>'
-      : '<div class="stripBox"><div class="wash"></div><div class="bar"></div><div class="shelf"></div></div>'}<div class="offNote"></div></div>
-    <div class="ctrl" style="display:flex;flex-direction:column;gap:12px">
+    <div class="ctrl">
       <div class="range"><div class="fill"></div><div class="lbl"><span style="display:flex;align-items:center;gap:8px">${SUN}Brightness</span><span class="pct"></span></div>
         <input type="range" min="5" max="100" aria-label="${link.label} brightness"></div>
       <div class="sws"></div>
-    </div>
-    <div class="devFoot"><button class="btn sm connect">Connect</button>${key === 'usb' ? '' : `<a class="more" href="${key === 'curtain' ? './' : 'strip.html'}">Full remote ›</a>`}</div>`;
-  const c = {el, stage: $('.stage', el), sw: $('.switch', el), range: $('input[type=range]', el), fill: $('.fill', el), pct: $('.pct', el),
-    stext: $('.stext', el), connect: $('.connect', el), note: $('.offNote', el), grid: $('.grid', el), bar: $('.bar', el), wash: $('.wash', el), swatches: []};
+    </div>`;
+  const c = {el, line: $('.devLine', el), sw: $('.switch', el), range: $('input[type=range]', el), fill: $('.fill', el), pct: $('.pct', el),
+    stext: $('.stext', el), connect: $('.connect', el), swatches: []};
   for(const [hex, name] of SWATCHES){
     const b = h('button', {class: 'sw', 'aria-label': name, style: '--s:' + hex});
     b.dataset.hex = hex;
@@ -457,24 +457,11 @@ function makeCard(key){
   });
   c.connect.onclick = () => link.device ? link.open() : link.choose(false);
   cards[key] = c;
-  if(key === 'curtain') new ResizeObserver(sizeCurtain).observe(c.stage);
 }
 function needLink(key){
   if(links[key].on) return true;
   toast(links[key].state === 'nobt' ? 'Bluetooth needs Chrome on Android' : `${links[key].label} isn't connected yet`, true);
   return false;
-}
-function sizeCurtain(){
-  const c = cards.curtain; if(!c) return;
-  const {vis} = curtainRows();
-  if(c.grid.childElementCount !== vis * 10){
-    c.grid.innerHTML = '';
-    for(let r = 0; r < vis; r++) for(let i = 0; i < 10; i++){ const d = h('i', {class: 'cell'}); d.dataset.r = r; c.grid.appendChild(d); }
-    render('curtain');
-  }
-  const hh = c.stage.clientHeight - 46, w = c.stage.clientWidth - 30;
-  if(hh <= 0) return;
-  c.grid.style.setProperty('--cs', clamp(Math.floor(Math.min((hh - (vis - 1) * 3) / vis, (w - 27) / 10)), 4, 22) + 'px');
 }
 const STATUS = {on: 'Connected', connecting: 'Connecting…', lost: 'Reconnecting…', idle: 'Not connected', nobt: 'Needs Chrome on Android'};
 function render(key){
@@ -490,17 +477,8 @@ function render(key){
   c.connect.hidden = link.state === 'on' || link.state === 'nobt';
   c.connect.textContent = link.state === 'connecting' ? 'Connecting…' : link.device ? 'Reconnect' : 'Connect';
   c.connect.disabled = link.state === 'connecting';
-  c.note.textContent = link.state === 'on' && !lit ? 'Switched off' : '';
-  c.stage.classList.toggle('lit', lit);
-  if(key === 'curtain'){
-    const {vis} = curtainRows();
-    $$('.cell', c.grid).forEach(d => { const r = +d.dataset.r; d.style.setProperty('--c', dim(lookAt(s.look, vis > 1 ? r / (vis - 1) : 0, r), b)); });
-  }else{
-    const n = key === 'usb' ? Math.min(usbSegs(), 30) : segCount();
-    if(c.bar.childElementCount !== n){ c.bar.innerHTML = ''; for(let i = 0; i < n; i++) c.bar.appendChild(h('i')); }
-    Array.from(c.bar.children).forEach((d, i) => d.style.setProperty('--c', dim(lookAt(s.look, n > 1 ? i / (n - 1) : 0, i), b)));
-    c.wash.style.setProperty('--wash', lookCss(s.look)); c.wash.style.setProperty('--wo', String(0.25 + 0.5 * b));
-  }
+  c.el.classList.toggle('lit', lit);
+  c.line.style.background = lookCss(s.look);
   if(key !== 'usb'){
     const root = document.documentElement.style;
     root.setProperty(key === 'curtain' ? '--c1' : '--c2', mid);
@@ -722,8 +700,7 @@ function fxTick(){
 function fxPreview(k, hex){
   const c = cards[k]; if(!c) return;
   c.el.style.setProperty('--dc', hex);
-  if(k === 'curtain') $$('.cell', c.grid).forEach(d => d.style.setProperty('--c', hex));
-  else { Array.from(c.bar.children).forEach(d => d.style.setProperty('--c', hex)); c.wash.style.setProperty('--wash', hex); }
+  c.line.style.background = hex;
   c.stext.textContent = 'Effect · ' + FX_MAP[FX.name].name;
 }
 function buildFx(){
@@ -972,7 +949,6 @@ function go(v){
   view = v; document.body.dataset.view = v;
   $$('.view').forEach(s => { s.hidden = s.dataset.view !== v; });
   $$('.backLbl').forEach(e => { e.textContent = calMode() ? 'Calendar' : 'Home'; });
-  if(v === 'lights') requestAnimationFrame(sizeCurtain);
   if(v === 'music') musicEnter();
   if(v === 'calendar') calEnter();
   closeSheets(); bump();

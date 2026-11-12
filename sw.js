@@ -1,8 +1,8 @@
 // Network first, cached copy as a fallback, so the home screen and remotes
 // still open if the Wi-Fi drops (Bluetooth control doesn't need the internet).
 // Other sites (weather, Spotify, fonts) are never cached here.
-const CACHE = 'home-v8';
-const CORE = ['./home.html', './home.css?v=14', './home.js?v=14', './img/home-bg.jpg', './', './strip.html', './manifest.webmanifest', './icons/icon-192.png'];
+const CACHE = 'home-v9';
+const CORE = ['./home.html', './home.css?v=15', './home.js?v=15', './img/home-bg.jpg', './', './strip.html', './manifest.webmanifest', './icons/icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).catch(() => {}).then(() => self.skipWaiting()));
 });

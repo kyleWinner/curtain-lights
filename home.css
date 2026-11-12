@@ -117,8 +117,14 @@ body[data-view=lights] .glows{opacity:1}
 
 /* ---------- lights ---------- */
 .lBody{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,31fr) minmax(0,69fr);gap:var(--gap);padding:6px var(--pad) var(--pad)}
-.lLeft{min-height:0;overflow:auto;padding-right:2px}
-.lCards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;min-height:0}
+.lLeft{min-height:0;overflow:auto;padding-right:2px;display:flex;flex-direction:column}
+/* Scenes stretch to fill the column, so the tiles are as big as the space allows */
+#scenesPane{flex:1;min-height:0;display:flex;flex-direction:column}
+#scenesPane .scenes{flex:1;grid-auto-rows:minmax(84px,1fr)}
+#scenesPane .scene{padding:9px 8px 10px;gap:9px;border-radius:18px}
+#scenesPane .scene i{flex:1;min-height:34px;border-radius:12px}
+#scenesPane .scene b{font-size:14.5px;letter-spacing:-.01em}
+.lCards{display:grid;grid-template-rows:repeat(3,minmax(0,1fr));gap:12px;min-height:0}
 .secLabel{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:4px 2px 10px}
 .secLabel.mt{margin-top:18px}
 .scenes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
@@ -178,8 +184,12 @@ body[data-view=lights] .glows{opacity:1}
 .axGrid .axEmpty{grid-column:1/-1;font-size:15px;padding:18px 20px}
 .axEmpty{color:var(--muted);font-size:13.5px;line-height:1.45;border:1px dashed var(--line);border-radius:14px;padding:12px 14px}
 
-.dev{--dc:#ff7a3d;display:flex;flex-direction:column;gap:12px;min-height:0;padding:14px}
+.dev{--dc:#ff7a3d;display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-height:0;padding:16px 18px 18px;position:relative;overflow:hidden}
+.devLine{position:absolute;left:0;right:0;top:0;height:5px;opacity:.2;transition:opacity .4s}
+.dev.lit .devLine{opacity:.9}
 .devHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.devActs{display:flex;align-items:center;gap:12px;flex:none}
+.devActs .more{margin-left:0}
 .devHead h2{font-family:var(--display);font-size:21px;font-weight:700;margin:0;letter-spacing:-.02em;line-height:1.1}
 .status{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-top:3px}
 .status .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
@@ -190,32 +200,24 @@ body[data-view=lights] .glows{opacity:1}
 .switch i{position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#aeb4c4;transition:transform .25s,background .25s}
 .switch[aria-checked=true]{background:var(--dc);border-color:transparent}
 .switch[aria-checked=true] i{transform:translateX(26px);background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
-.stage{flex:1;min-height:100px;border-radius:16px;background:#05060a;border:1px solid var(--line);position:relative;overflow:hidden;display:grid;place-items:center}
-.stage .rod{position:absolute;left:14px;right:14px;top:12px;height:4px;border-radius:2px;background:#262b3a}
-.grid{display:grid;gap:3px;grid-template-columns:repeat(10,var(--cs,8px));margin-top:14px}
-.cell{width:var(--cs,8px);height:var(--cs,8px);border-radius:50%;background:#161a25;transition:background .5s,box-shadow .5s}
-.lit .cell{background:var(--c);box-shadow:0 0 calc(var(--cs,8px) * .8) var(--c)}
-.stripBox{width:86%;position:relative;align-self:start;margin-top:20%}
-.wash{position:absolute;left:4%;right:4%;top:6px;height:120px;filter:blur(26px);opacity:0;background:var(--wash);transition:opacity .6s}
-.lit .wash{opacity:var(--wo,.5)}
-.bar{display:flex;gap:3px;height:12px;position:relative}
-.bar i{flex:1;border-radius:3px;background:#161a25;transition:background .5s,box-shadow .5s}
-.lit .bar i{background:var(--c);box-shadow:0 0 10px var(--c)}
-.shelf{height:5px;margin-top:4px;border-radius:2px;background:#262b3a}
-.offNote{position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:12.5px;color:var(--faint)}
+.dev .switch{width:74px;height:42px}
+.dev .switch i{width:34px;height:34px}
+.dev .switch[aria-checked=true] i{transform:translateX(32px)}
 .range{position:relative;height:46px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);overflow:hidden;flex:none}
 .range .fill{position:absolute;left:0;top:0;bottom:0;width:50%;background:linear-gradient(90deg,color-mix(in srgb,var(--dc) 30%,transparent),color-mix(in srgb,var(--dc) 75%,transparent))}
 .range .lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;pointer-events:none;
   font-weight:600;font-size:14.5px;text-shadow:0 1px 3px rgba(0,0,0,.55);font-variant-numeric:tabular-nums}
 .range .lbl svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round}
 .range input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
-.sws{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;flex:none}
+.dev .ctrl{display:flex;flex-direction:column;gap:12px}
+.dev .range{height:58px;border-radius:16px}
+.dev .range .lbl{font-size:16px;padding:0 18px}
+.sws{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:9px;flex:none}
+.dev .sw{height:52px;border-radius:14px}
 .sw{height:34px;border-radius:12px;border:2px solid transparent;padding:0;background:var(--s);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
 .sw.sel{border-color:var(--fg)}
-.devFoot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;min-height:38px}
 .more{color:var(--muted);text-decoration:none;font-size:13.5px;padding:8px 2px;margin-left:auto;white-space:nowrap}
 .dev:not([data-state=on]) .ctrl{opacity:.45}
-.dev:not([data-state=on]) .stage>*:not(.offNote){opacity:.5}
 
 .btn{border:0;border-radius:12px;padding:11px 18px;background:var(--fg);color:var(--bg);font-weight:600}
 .btn:active{transform:scale(.97)}
@@ -481,6 +483,15 @@ textarea.field{resize:none;min-height:64px}
   .lBody{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
   .lLeft{overflow:visible}
   .scenes{grid-template-columns:repeat(5,minmax(0,1fr))}
+  #scenesPane .scenes{grid-auto-rows:auto}
+  #scenesPane .scene i{flex:none;height:30px}
+  #scenesPane .scene b{font-size:13.5px}
+  .lBody{overflow:auto}
+  .lCards{grid-template-rows:none;grid-auto-rows:auto}
+  .dev{padding:14px 16px 16px;gap:10px}
+  .dev .range{height:50px}
+  .dev .sw{height:46px}
+  .dev .ctrl{gap:10px}
   .mBody{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
   .lib{max-height:none;padding:8px}
   .libList{display:flex;gap:6px;overflow-x:auto}
