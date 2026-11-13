@@ -1273,6 +1273,7 @@ function renderMusic(){
     $('#pVolRow').style.visibility = vol ? 'visible' : 'hidden';
     if(vol && document.activeElement !== $('#pVol') && !volDrag) $('#pVol').value = s.device.volume_percent;
     if(it.id !== SP.trackId){ SP.trackId = it.id; if(follow) setTimeout(followAlbum, 400); }
+    if(it.id !== LYR.key) lyrLoad();
     $$('.tr').forEach(r => r.classList.toggle('playing', r.dataset.uri === it.uri));
     $$('.li').forEach(r => r.classList.toggle('playing', !!(s.context && r.dataset.uri === s.context.uri)));
   }else{
@@ -1284,6 +1285,7 @@ function renderMusic(){
   }
   $('#player').classList.toggle('empty', !has);
   document.documentElement.style.setProperty('--o3', playing ? '.9' : has ? '.4' : '0');
+  if(!has && LYR.key) lyrLoad();
   progress(); renderAmbient();
 }
 let seekPreview = null, volDrag = false;
@@ -1293,6 +1295,135 @@ function progress(){
   $('#pBar').style.width = pc + '%'; $('#aBar').style.width = pc + '%';
   $('#pPos').textContent = fmtMs(pos); $('#pDur').textContent = fmtMs(dur);
 }
+// =====================================================================
+// Lyrics: fetched on demand from LRCLIB (a free, community-run lyrics database with
+// time-synced lines). Nothing is bundled here; the tablet asks for the song that's playing.
+// =====================================================================
+const LYR = {key: null, data: null, loading: false, cache: new Map(), idx: -2, open: false, userScroll: 0, ambient: ''};
+const lyrIdleOn = () => ls.get('home.lyr.idle', true);
+function lrcParse(text){
+  const out = []; let offset = 0;
+  for(const raw of text.split(/\r?\n/)){
+    const off = raw.match(/^\[offset:\s*([+-]?\d+)\s*\]/i); if(off){ offset = +off[1]; continue; }
+    const tags = [...raw.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)]; if(!tags.length) continue;
+    const words = raw.replace(/\[[^\]]*\]/g, '').trim();
+    for(const t of tags) out.push({t: (+t[1]) * 60000 + Math.round(parseFloat(t[2]) * 1000), text: words});
+  }
+  for(const l of out) l.t -= offset; // a positive LRC offset means the lines come earlier
+  return out.sort((a, b) => a.t - b.t);
+}
+// "Song - 2011 Remaster" / "Song (feat. X)" -> "Song", for the looser second search
+const lyrClean = n => n.replace(/\s+-\s+.*$/, '').replace(/\s*[(\[](feat\.?|ft\.?|with)\s[^)\]]*[)\]]/ig, '').trim();
+async function lrclib(path){
+  const r = await fetch('https://lrclib.net/api/' + path);
+  if(r.status === 404) return null;
+  if(!r.ok) throw new Error('The lyrics service replied ' + r.status);
+  return r.json();
+}
+function demoLyrics(it){
+  const lines = [{t: 0, text: ''}];
+  for(let i = 0; i < 60; i++) lines.push({t: 2000 + i * 3500, text: i % 9 === 8 ? '' : `Demo line ${i + 1} for ${it.name}`});
+  return {synced: lines};
+}
+async function findLyrics(it){
+  if(DEMO) return demoLyrics(it);
+  const artist = (it.artists && it.artists[0] && it.artists[0].name) || '', dur = Math.round(it.duration_ms / 1000);
+  const qs = o => new URLSearchParams(o).toString();
+  let j = await lrclib('get?' + qs({track_name: it.name, artist_name: artist, album_name: (it.album && it.album.name) || '', duration: dur}));
+  if(!j || (!j.syncedLyrics && !j.plainLyrics && !j.instrumental)){
+    const list = (await lrclib('search?' + qs({track_name: lyrClean(it.name), artist_name: artist}))) || [];
+    const near = list.filter(x => Math.abs((x.duration || 0) - dur) <= 4);
+    j = near.find(x => x.syncedLyrics) || near.find(x => x.plainLyrics) || near.find(x => x.instrumental) || j;
+  }
+  if(!j) return {none: true};
+  if(j.syncedLyrics){ const synced = lrcParse(j.syncedLyrics); if(synced.length) return {synced}; }
+  if(j.plainLyrics) return {plain: j.plainLyrics.split(/\r?\n/)};
+  if(j.instrumental) return {instrumental: true};
+  return {none: true};
+}
+const lyrWanted = () => LYR.open || lyrIdleOn();
+async function lyrLoad(){
+  const s = SP.state, it = s && s.item;
+  const key = it && it.type !== 'episode' ? it.id : null;
+  if(key === LYR.key) return;
+  LYR.key = key; LYR.data = null; LYR.idx = -2; LYR.loading = false;
+  if(!key){ lyrRender(); return; }
+  if(LYR.cache.has(key)){ LYR.data = LYR.cache.get(key); lyrRender(); return; }
+  if(!lyrWanted()){ LYR.key = null; lyrRender(); return; } // fetch later, when someone wants them
+  LYR.loading = true; lyrRender();
+  let data;
+  try{ data = await findLyrics(it); }catch(e){ data = {err: e.message || 'Couldn\'t reach the lyrics service'}; }
+  if(LYR.key !== key) return; // the song changed while we waited
+  if(!data.err){ LYR.cache.set(key, data); if(LYR.cache.size > 60) LYR.cache.delete(LYR.cache.keys().next().value); }
+  LYR.data = data; LYR.loading = false; lyrRender();
+}
+function lyrRender(){
+  const list = $('#lyrList'), it = SP.state && SP.state.item;
+  $('#lyrSong').textContent = it ? `${it.name} · ${it.type === 'episode' ? (it.show && it.show.name) || '' : artists(it)}` : '';
+  list.innerHTML = ''; LYR.idx = -2; list.classList.remove('plain');
+  const note = t => list.appendChild(h('div', {class: 'lyrNote'}, t));
+  const d = LYR.data;
+  if(!it) note('Nothing playing');
+  else if(it.type === 'episode') note('Podcasts don\'t have lyrics');
+  else if(LYR.loading || !d) note('Finding the lyrics…');
+  else if(d.err) note(d.err);
+  else if(d.instrumental) note('♪ Instrumental ♪');
+  else if(d.none) note('No lyrics found for this song');
+  else if(d.plain){
+    list.classList.add('plain');
+    list.appendChild(h('div', {class: 'lyrNote sm'}, 'These lyrics aren\'t time-synced'));
+    for(const t of d.plain) list.appendChild(h('p', {class: 'ly'}, t || ' '));
+  }else{
+    d.synced.forEach((l, i) => {
+      const p = h('p', {class: 'ly' + (l.text ? '' : ' gap')}, l.text || '♪');
+      p.onclick = () => lyrSeek(l.t);
+      p.dataset.i = i; list.appendChild(p);
+    });
+  }
+  lyrTick(true);
+}
+function lyrSeek(ms){
+  const s = SP.state; if(!s || !s.item) return;
+  s.progress_ms = ms; SP.at = Date.now(); progress(); LYR.userScroll = 0; lyrTick(true);
+  if(!DEMO) sp('PUT', '/me/player/seek?position_ms=' + Math.round(ms)).catch(spErr);
+}
+function lyrTick(force){
+  const d = LYR.data, synced = d && d.synced;
+  const ambientOn = $('#ambient').classList.contains('show') && lyrIdleOn();
+  // Idle screen: the current line big, the next one dim underneath.
+  const a = $('#aLyr');
+  if(!synced || !ambientOn){ if(!a.hidden) a.hidden = true; }
+  if(!synced) return;
+  const pos = spPos() + 250; // a touch early, so the line is up as it's sung
+  let i = -1;
+  for(let k = 0; k < synced.length; k++){ if(synced[k].t <= pos) i = k; else break; }
+  if(ambientOn){
+    const now = i >= 0 ? synced[i].text : '', next = synced.slice(i + 1).find(l => l.text);
+    const key = i + '|' + (next ? next.text : '');
+    a.hidden = false;
+    if(key !== LYR.ambient){
+      LYR.ambient = key;
+      $('#aLyrNow').textContent = now || '♪'; $('#aLyrNext').textContent = next ? next.text : '';
+      a.classList.remove('fresh'); void a.offsetWidth; a.classList.add('fresh');
+    }
+  }
+  if(i === LYR.idx && !force) return;
+  LYR.idx = i;
+  if(!LYR.open) return;
+  const list = $('#lyrList'), rows = list.children;
+  for(const p of rows){ const n = +p.dataset.i; p.classList.toggle('on', n === i); p.classList.toggle('past', n < i); }
+  const cur = list.querySelector('.ly.on');
+  if(cur && Date.now() - LYR.userScroll > 4000){
+    list.scrollTo({top: cur.offsetTop - list.clientHeight * 0.38, behavior: force ? 'auto' : 'smooth'});
+  }
+}
+function lyrOpen(on){
+  LYR.open = on;
+  $('#lyrPane').hidden = !on; $('#mMain').hidden = on;
+  $('#pLyrics').classList.toggle('on', on);
+  if(on){ LYR.key = LYR.cache.has(LYR.key) || LYR.loading ? LYR.key : null; lyrLoad(); lyrRender(); }
+}
+setInterval(() => { if(LYR.data && LYR.data.synced) lyrTick(false); }, 250);
 function seekAt(e){ const r = $('#pProg').getBoundingClientRect(); return clamp((e.clientX - r.left) / r.width, 0, 1) * SP.state.item.duration_ms; }
 
 // Album colours: sample the art on a canvas (Spotify's image server allows it).
@@ -1424,8 +1555,8 @@ function libItem({name, sub, img, liked, uri, onclick}){
   b.dataset.uri = uri || '';
   return b;
 }
-function openView(v){ M.stack.push(M.cur); M.cur = v; renderMain(); $('#mMain').scrollTop = 0; }
-function backView(){ M.cur = M.stack.pop() || {type: 'home'}; renderMain(); }
+function openView(v){ if(LYR.open) lyrOpen(false); M.stack.push(M.cur); M.cur = v; renderMain(); $('#mMain').scrollTop = 0; }
+function backView(){ if(LYR.open) lyrOpen(false); M.cur = M.stack.pop() || {type: 'home'}; renderMain(); }
 function mainShell(){
   const main = $('#mMain'); main.innerHTML = ''; main.style.removeProperty('--mh');
   if(M.stack.length && M.cur.type !== 'home') main.appendChild(h('button', {class: 'mBack', 'aria-label': 'Back', onclick: backView, html: '<svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>'}));
@@ -1841,7 +1972,7 @@ function goIdle(){
   if(view !== 'home') go('home');
   showAmbient();
 }
-function showAmbient(){ renderAmbient(); nudgeAmbient(); $('#ambient').classList.add('show', 'block'); }
+function showAmbient(){ renderAmbient(); nudgeAmbient(); $('#ambient').classList.add('show', 'block'); LYR.ambient = ''; if(lyrIdleOn() && SP.state && SP.state.item && LYR.key !== SP.state.item.id) lyrLoad(); lyrTick(true); }
 function hideAmbient(){ const a = $('#ambient'); a.classList.remove('show'); setTimeout(() => a.classList.remove('block'), 350); }
 function wakeUp(){
   if($('#ambient').classList.contains('show')) hideAmbient();
@@ -2205,6 +2336,10 @@ function demoCalApi(action, data){
 applyBg();
 makeCard('curtain'); makeCard('strip'); makeCard('usb');
 buildFx(); $$('#lTabs button').forEach(b => { b.onclick = () => showLightsTab(b.dataset.t); }); showLightsTab(ls.get('home.lightsTab', 'scenes')); buildScenes(); renderAlexa(); axReset();
+$('#pLyrics').onclick = () => lyrOpen(!LYR.open);
+$('#lyrClose').onclick = () => lyrOpen(false);
+['wheel', 'touchmove', 'pointerdown'].forEach(ev => $('#lyrList').addEventListener(ev, () => { LYR.userScroll = Date.now(); }, {passive: true}));
+bindSwitch($('#oLyrIdle'), 'home.lyr.idle', true, v => { if(v) lyrLoad(); lyrTick(true); });
 $('#allOn').onclick = () => allPower(true); $('#allOff').onclick = () => allPower(false);
 $('#axEditBtn').onclick = () => { openSheet('settings'); requestAnimationFrame(() => $('#axSec').scrollIntoView({block: 'start'})); };
 bindSettings(); setFollow(follow);

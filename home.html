@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="home.css?v=15">
+<link rel="stylesheet" href="home.css?v=16">
 </head>
 <body data-view="home">
 <div class="bgImg" aria-hidden="true"></div><div class="bgShade" aria-hidden="true"></div>
@@ -122,6 +122,11 @@
     <div class="mBody">
       <aside class="lib card"><div class="libHead"><svg viewBox="0 0 24 24"><path d="M4 4v16M9 4v16M14 4l6 16"/></svg>Your library<small class="libSort">Recently played</small></div><div class="libList" id="libList"></div></aside>
       <div class="mMain" id="mMain"></div>
+      <div class="lyrPane" id="lyrPane" hidden>
+        <div class="lyrHead"><div><b>Lyrics</b><small id="lyrSong"></small></div><button class="icon" id="lyrClose" aria-label="Close lyrics"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <div class="lyrList" id="lyrList"></div>
+        <div class="lyrSrc">Lyrics from LRCLIB</div>
+      </div>
     </div>
     <footer class="player empty" id="player">
       <div class="pNow"><img id="pArt" alt=""><div><b id="pTitle">Nothing playing</b><small id="pArtist"></small></div></div>
@@ -138,6 +143,7 @@
       <div class="pRight">
         <button class="pDev" id="pDev"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="14" r="4"/><path d="M12 6h.01"/></svg><span id="pDevName">Speakers</span></button>
         <div class="vol" id="pVolRow"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg><input type="range" id="pVol" min="0" max="100" aria-label="Volume"></div>
+        <button class="chip lyrBtn" id="pLyrics" title="Show the lyrics"><svg viewBox="0 0 24 24"><path d="M4 6h11M4 11h11M4 16h7"/><circle cx="18" cy="16" r="2.5"/><path d="M20.5 16V5l-3 1"/></svg>Lyrics</button>
         <button class="chip" id="pFollow" hidden title="Set the lights to the album art's colours"><i></i>Lights</button>
       </div>
     </footer>
@@ -183,7 +189,8 @@
     <div class="aClockWrap" id="aClockWrap"><div class="aClock" id="aClock">00:00</div><div class="aDate" id="aDate"></div></div>
     <div class="aMusic" id="aMusic" hidden>
       <div class="aArt"><img id="aArt" alt=""></div>
-      <div class="aText"><div class="aSmallClock" id="aSmallClock"></div><div class="aTitle" id="aTitle"></div><div class="aArtist" id="aArtist"></div><div class="aBar"><i id="aBar"></i></div></div>
+      <div class="aText"><div class="aSmallClock" id="aSmallClock"></div><div class="aTitle" id="aTitle"></div><div class="aArtist" id="aArtist"></div><div class="aBar"><i id="aBar"></i></div>
+        <div class="aLyr" id="aLyr" hidden><div class="aLyrNow" id="aLyrNow"></div><div class="aLyrNext" id="aLyrNext"></div></div></div>
     </div>
   </div>
 </div>
@@ -256,6 +263,7 @@
       </div>
       <div id="spIn" hidden>
         <p class="hint" style="margin-top:0">Connected to Spotify.</p>
+        <label class="opt" style="margin-top:6px">Lyrics on the idle screen <button class="switch" id="oLyrIdle" role="switch" aria-checked="true" style="--dc:#1ed760"><i></i></button></label>
         <p class="hint" id="spLib" hidden>Reconnect once so the Music screen can show your playlists, liked songs and recently played.</p>
         <div class="row" style="margin-top:10px"><button class="btn ghost sm" id="spRelog">Reconnect</button><button class="btn ghost sm" id="spLogout">Disconnect Spotify</button></div>
       </div>
@@ -346,6 +354,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script src="home.js?v=15"></script>
+<script src="home.js?v=16"></script>
 </body>
 </html>
